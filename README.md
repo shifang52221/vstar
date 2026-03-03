@@ -11,3 +11,12 @@ APIHOOK 两个函数 SetWindowDisplayAffinity 和 OpenProcess
 3.运行EVPlayer2 （进程名为 EVPlayer2.exe）  
 4.打开我的软件，提示  
 注入成功，破解成功 即可进行截图，录屏
+
+## VStart Next (Windows Prototype)
+This repository now also contains a new launcher prototype at src/VStartNext.App.
+
+### Quick Verification
+- dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj -v minimal
+- dotnet build VStartNext.sln -c Release
+- powershell -ExecutionPolicy Bypass -File scripts/verify.ps1
+
