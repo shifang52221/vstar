@@ -1,0 +1,5 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="BrandColor">#2E8B57</Color>
+    <SolidColorBrush x:Key="BrandBrush" Color="{StaticResource BrandColor}" />
+</ResourceDictionary>
