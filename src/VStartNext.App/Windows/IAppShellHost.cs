@@ -11,4 +11,6 @@ public interface IAppShellHost : IDisposable
     event EventHandler<string>? CommandSubmitted;
 
     void SetOpenModelSettingsHandler(Action onOpenModelSettings);
+
+    void SetModelProfile(string provider, string chatModel);
 }

@@ -45,6 +45,7 @@ internal static class Program
         var shellHostMode = ShellHostFactory.ResolveMode(
             Environment.GetEnvironmentVariable("VSTART_SHELL_MODE"));
         using var shellHost = ShellHostFactory.Create(shellHostMode);
+        ApplyShellModelProfile(shellHost, modelSettingsService);
         var shellWindow = shellHost.ShellWindow;
         var appAgentGateway = new AppAgentGateway(
             modelRouter,
@@ -63,7 +64,11 @@ internal static class Program
             followUiLanguage: false);
 
         using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
-        shellHost.SetOpenModelSettingsHandler(() => ShowModelSettingsDialog(shellHost.OwnerWindow, modelSettingsService));
+        shellHost.SetOpenModelSettingsHandler(() =>
+        {
+            ShowModelSettingsDialog(shellHost.OwnerWindow, modelSettingsService);
+            ApplyShellModelProfile(shellHost, modelSettingsService);
+        });
         var shellWindowController = new ShellWindowController(shellWindow);
         shellWindow.HideShell();
 
@@ -126,5 +131,13 @@ internal static class Program
             yield return token;
             await Task.CompletedTask;
         }
+    }
+
+    private static void ApplyShellModelProfile(
+        IAppShellHost shellHost,
+        IModelSettingsService modelSettingsService)
+    {
+        var input = modelSettingsService.Load();
+        shellHost.SetModelProfile(input.Provider, input.ChatModel);
     }
 }

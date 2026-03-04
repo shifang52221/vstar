@@ -23,6 +23,11 @@ public sealed class WinUiPreviewShellHost : IAppShellHost
         _shellWindow.SetOpenModelSettingsHandler(onOpenModelSettings);
     }
 
+    public void SetModelProfile(string provider, string chatModel)
+    {
+        _shellWindow.SetModelProfile(provider, chatModel);
+    }
+
     public void Dispose()
     {
         _shellWindow.CommandSubmitted -= ForwardCommandSubmitted;

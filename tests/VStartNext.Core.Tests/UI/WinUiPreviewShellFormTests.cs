@@ -28,4 +28,22 @@ public class WinUiPreviewShellFormTests
         form.HeaderInteractionCountForTesting.Should().Be(1);
         form.CommandFocusRequestedForTesting.Should().BeTrue();
     }
+
+    [Fact]
+    public void Constructor_InitializesCloudAiBadgeText()
+    {
+        using var form = new WinUiPreviewShellForm(NeoThemeTokens.Default());
+
+        form.AiBadgeTextForTesting.Should().Be("Cloud AI");
+    }
+
+    [Fact]
+    public void SetModelProfileForTesting_UpdatesModelLabel()
+    {
+        using var form = new WinUiPreviewShellForm(NeoThemeTokens.Default());
+
+        form.SetModelProfileForTesting("OpenAiCompatible", "gpt-4.1-mini");
+
+        form.ModelProfileTextForTesting.Should().Be("OpenAiCompatible / gpt-4.1-mini");
+    }
 }

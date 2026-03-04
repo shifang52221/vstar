@@ -23,6 +23,11 @@ public sealed class WinFormsShellHost : IAppShellHost
         _shellWindow.SetOpenModelSettingsHandler(onOpenModelSettings);
     }
 
+    public void SetModelProfile(string provider, string chatModel)
+    {
+        // WinForms shell does not expose model status UI in this wave.
+    }
+
     public void Dispose()
     {
         _shellWindow.CommandSubmitted -= ForwardCommandSubmitted;

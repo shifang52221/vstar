@@ -36,4 +36,15 @@ public class WinUiPreviewShellHostTests
 
         invoked.Should().BeTrue();
     }
+
+    [Fact]
+    public void SetModelProfile_UpdatesPreviewFormHeader()
+    {
+        using var host = new WinUiPreviewShellHost();
+
+        host.SetModelProfile("OpenAiCompatible", "gpt-4.1");
+
+        var form = (WinUiPreviewShellForm)host.OwnerWindow;
+        form.ModelProfileTextForTesting.Should().Be("OpenAiCompatible / gpt-4.1");
+    }
 }
