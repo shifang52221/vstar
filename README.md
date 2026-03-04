@@ -23,7 +23,17 @@ This repository now also contains a new Windows launcher prototype at `src/VStar
 - Launch context actions (`Run as admin`, `Open directory`, `Copy path`).
 - End-to-end command submission wiring from shell command bar to app orchestration state.
 
+### AI Agent Wave 3 Highlights
+- Cloud-first launcher agent contracts and execution pipeline.
+- Tool registry and policy guard with high-risk confirmation gate.
+- Multi-step orchestrator with reflection hook before execution.
+- Bilingual response policy (`zh-CN` / `en-US`, input-language-first).
+- App-level natural-language routing through an agent gateway.
+- Memory profile baseline for language and tool usage frequency.
+
 ### Quick Verification
+- dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal
+- dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentRoutingTests|FullyQualifiedName~NeoPanelInteractionFlowTests" -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter NeoPanel -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~CommandPrefixParserTests|FullyQualifiedName~CommandPaletteServiceTests" -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter FullyQualifiedName~FlowLaunchRunnerTests -v minimal

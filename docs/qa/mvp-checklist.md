@@ -10,6 +10,9 @@
 - [ ] `url:` and `ws:` commands route to open-target execution.
 - [ ] Flow launch executes configured steps in deterministic order.
 - [ ] Neo-panel command submission updates app result state.
+- [ ] Natural-language command routes through app agent gateway.
+- [ ] Agent orchestrator invokes reflection before execution.
+- [ ] Agent executor executes multi-step plans in declared order.
 
 ## Stability
 
@@ -17,9 +20,14 @@
 - [ ] Config corruption fallback restores defaults.
 - [ ] Verify script completes successfully.
 - [ ] Shell visibility interaction remains consistent after command submissions.
+- [ ] High-risk agent actions require confirmation.
+- [ ] Bilingual response policy resolves by input language by default.
+- [ ] Agent memory profile stores language and tool usage frequency.
 
 ## Release Gate
 
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal`
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentRoutingTests|FullyQualifiedName~NeoPanelInteractionFlowTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter NeoPanel -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~CommandPrefixParserTests|FullyQualifiedName~CommandPaletteServiceTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter FullyQualifiedName~FlowLaunchRunnerTests -v minimal`

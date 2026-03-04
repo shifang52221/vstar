@@ -1,5 +1,11 @@
 $ErrorActionPreference = "Stop"
 
+dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal
+if ($LASTEXITCODE -ne 0) { throw "Agent tests failed" }
+
+dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentRoutingTests|FullyQualifiedName~NeoPanelInteractionFlowTests" -v minimal
+if ($LASTEXITCODE -ne 0) { throw "Agent routing interaction tests failed" }
+
 dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter NeoPanel -v minimal
 if ($LASTEXITCODE -ne 0) { throw "Neo-panel tests failed" }
 
