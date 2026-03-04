@@ -50,6 +50,6 @@ public sealed class ContextPanelControl : UserControl
 
     public void TriggerAiSettingsForTesting()
     {
-        _aiSettingsButton.PerformClick();
+        AiSettingsRequested?.Invoke(this, EventArgs.Empty);
     }
 }

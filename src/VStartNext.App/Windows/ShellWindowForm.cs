@@ -6,12 +6,14 @@ namespace VStartNext.App.Windows;
 public sealed class ShellWindowForm : Form, IShellWindow
 {
     private readonly NeoPanelView _neoPanel;
+    private Action? _onOpenModelSettings;
 
     public event EventHandler<string>? CommandSubmitted;
     public event EventHandler? AiSettingsRequested;
 
-    public ShellWindowForm()
+    public ShellWindowForm(Action? onOpenModelSettings = null)
     {
+        _onOpenModelSettings = onOpenModelSettings;
         Text = "VStart Next";
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(980, 620);
@@ -22,7 +24,11 @@ public sealed class ShellWindowForm : Form, IShellWindow
 
         _neoPanel = new NeoPanelView();
         _neoPanel.CommandSubmitted += (_, input) => CommandSubmitted?.Invoke(this, input);
-        _neoPanel.AiSettingsRequested += (_, _) => AiSettingsRequested?.Invoke(this, EventArgs.Empty);
+        _neoPanel.AiSettingsRequested += (_, _) =>
+        {
+            AiSettingsRequested?.Invoke(this, EventArgs.Empty);
+            _onOpenModelSettings?.Invoke();
+        };
         Controls.Add(_neoPanel);
     }
 
@@ -49,5 +55,10 @@ public sealed class ShellWindowForm : Form, IShellWindow
     public void TriggerAiSettingsForTesting()
     {
         _neoPanel.TriggerAiSettingsForTesting();
+    }
+
+    public void SetOpenModelSettingsHandler(Action onOpenModelSettings)
+    {
+        _onOpenModelSettings = onOpenModelSettings;
     }
 }
