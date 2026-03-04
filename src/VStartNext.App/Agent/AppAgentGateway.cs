@@ -1,3 +1,4 @@
+using VStartNext.Core.Agent;
 using VStartNext.Core.Search;
 
 namespace VStartNext.App.Agent;
@@ -12,6 +13,12 @@ public interface IAppAgentGateway
 public sealed class AppAgentGateway : IAppAgentGateway
 {
     private static readonly string[] Prefixes = ["calc:", "url:", "ws:"];
+    private readonly IAgentModelRouter? _modelRouter;
+
+    public AppAgentGateway(IAgentModelRouter? modelRouter = null)
+    {
+        _modelRouter = modelRouter;
+    }
 
     public bool ShouldHandle(string input)
     {
@@ -33,6 +40,24 @@ public sealed class AppAgentGateway : IAppAgentGateway
 
     public Task<CommandExecutionResult> ExecuteAsync(string input)
     {
-        return Task.FromResult(new CommandExecutionResult(false, "Agent gateway is not configured"));
+        if (_modelRouter is null)
+        {
+            return Task.FromResult(new CommandExecutionResult(false, "Agent gateway is not configured"));
+        }
+
+        return ExecuteWithRouterAsync(input);
+    }
+
+    private async Task<CommandExecutionResult> ExecuteWithRouterAsync(string input)
+    {
+        try
+        {
+            var output = await _modelRouter!.CompleteAsync(input);
+            return new CommandExecutionResult(true, output);
+        }
+        catch (Exception ex)
+        {
+            return new CommandExecutionResult(false, $"Agent request failed: {ex.Message}");
+        }
     }
 }

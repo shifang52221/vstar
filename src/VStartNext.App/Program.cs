@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using VStartNext.App.Agent;
 using VStartNext.App.Settings;
 using VStartNext.App.Win32;
 using VStartNext.App.Windows;
@@ -15,12 +16,16 @@ internal static class Program
     {
         ApplicationConfiguration.Initialize();
 
+        var configStore = new AppConfigFileStore();
+        var secretProtector = new DpapiSecretProtector();
         var modelSettingsService = new ModelSettingsService(
-            new AppConfigFileStore(),
-            new DpapiSecretProtector(),
+            configStore,
+            secretProtector,
             new ModelConnectionTester());
+        var modelRouter = new OpenAiCompatibleAgentModelRouter(configStore, secretProtector);
+        var appAgentGateway = new AppAgentGateway(modelRouter);
 
-        using var app = new App(enableSystemTrayIcon: true);
+        using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
         using var shellWindow = new ShellWindowForm();
         shellWindow.SetOpenModelSettingsHandler(() => ShowModelSettingsDialog(shellWindow, modelSettingsService));
         var shellWindowController = new ShellWindowController(shellWindow);
