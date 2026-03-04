@@ -1,11 +1,19 @@
 using System.Drawing;
 using System.Windows.Forms;
+using VStartNext.App.Windows.Controls;
 
 namespace VStartNext.App.Windows;
 
 public sealed class NeoPanelView : UserControl
 {
+    private readonly CommandBarControl _commandBar;
+    private readonly LaunchGridControl _launchGrid;
+    private readonly ContextPanelControl _contextPanel;
+
     public int ZoneCount => 5;
+    public bool HasCommandBar => _commandBar is not null;
+    public bool HasLaunchGrid => _launchGrid is not null;
+    public bool HasContextPanel => _contextPanel is not null;
 
     public NeoPanelView()
     {
@@ -26,13 +34,15 @@ public sealed class NeoPanelView : UserControl
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
-        var top = ZonePanel("COMMAND");
-        root.SetColumnSpan(top, 3);
-        root.Controls.Add(top, 0, 0);
+        _commandBar = new CommandBarControl();
+        root.SetColumnSpan(_commandBar, 3);
+        root.Controls.Add(_commandBar, 0, 0);
 
         root.Controls.Add(ZonePanel("NAV"), 0, 1);
-        root.Controls.Add(ZonePanel("GRID"), 1, 1);
-        root.Controls.Add(ZonePanel("CONTEXT"), 2, 1);
+        _launchGrid = new LaunchGridControl();
+        root.Controls.Add(_launchGrid, 1, 1);
+        _contextPanel = new ContextPanelControl();
+        root.Controls.Add(_contextPanel, 2, 1);
 
         var bottom = ZonePanel("STATUS");
         root.SetColumnSpan(bottom, 3);
