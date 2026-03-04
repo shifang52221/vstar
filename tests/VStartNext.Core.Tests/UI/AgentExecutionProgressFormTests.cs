@@ -61,6 +61,43 @@ public class AgentExecutionProgressFormTests
 
         form.ModelStreamTextForTesting.Should().Contain("Plan ready");
         form.ModelStreamTextForTesting.Should().Contain("Done");
+        form.StatusPhaseTextForTesting.Should().Be("Completed");
+        form.StreamTokenCountForTesting.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task RunForTestingAsync_WhenCanceled_UpdatesStatusPhase()
+    {
+        var preview = new AgentExecutionPreview(
+            "open chrome",
+            [new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low)]);
+        using var form = new AgentExecutionProgressForm(
+            preview,
+            (ct, _) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                return Task.FromResult(new AgentRunResult(true, "Completed", []));
+            });
+        form.TriggerCancelForTesting();
+
+        await form.RunForTestingAsync();
+
+        form.StatusPhaseTextForTesting.Should().Be("Canceled");
+    }
+
+    [Fact]
+    public async Task RunForTestingAsync_WhenRunnerThrows_UpdatesStatusPhaseToFailed()
+    {
+        var preview = new AgentExecutionPreview(
+            "open chrome",
+            [new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low)]);
+        using var form = new AgentExecutionProgressForm(
+            preview,
+            (_, _) => throw new InvalidOperationException("boom"));
+
+        await form.RunForTestingAsync();
+
+        form.StatusPhaseTextForTesting.Should().Be("Failed");
     }
 
     private static async IAsyncEnumerable<string> StreamTokens(params string[] tokens)
