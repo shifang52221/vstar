@@ -101,6 +101,54 @@ public class OpenAiCompatibleAgentPlannerTests
         result.Steps[0].RiskLevel.Should().Be(AgentRiskLevel.High);
     }
 
+    [Fact]
+    public async Task PlanAsync_WithMixedLanguageAndChineseInput_BuildsChinesePlanningPrompt()
+    {
+        var router = new CapturingRouter(
+            """{"intent":"Automation","steps":[{"toolName":"launch_app","arguments":"chrome","riskLevel":"Low"}]}""");
+        var planner = new OpenAiCompatibleAgentPlanner(router);
+
+        await planner.PlanAsync(new AgentPlannerRequest(
+            "\u6253\u5f00 \u6d4f\u89c8\u5668",
+            AgentLanguage.Mixed,
+            ["launch_app"]));
+
+        router.LastPrompt.Should().Contain("Language mode: zh-CN");
+        router.LastPrompt.Should().Contain("Output JSON only");
+        router.LastPrompt.Should().Contain("\"steps\"");
+    }
+
+    [Fact]
+    public async Task PlanAsync_WithMixedLanguageAndEnglishInput_BuildsEnglishPlanningPrompt()
+    {
+        var router = new CapturingRouter(
+            """{"intent":"Automation","steps":[{"toolName":"launch_app","arguments":"chrome","riskLevel":"Low"}]}""");
+        var planner = new OpenAiCompatibleAgentPlanner(router);
+
+        await planner.PlanAsync(new AgentPlannerRequest(
+            "open browser",
+            AgentLanguage.Mixed,
+            ["launch_app"]));
+
+        router.LastPrompt.Should().Contain("Language mode: en-US");
+        router.LastPrompt.Should().Contain("Output JSON only");
+    }
+
+    [Fact]
+    public async Task PlanAsync_WithMixedLanguageAndHybridInput_BuildsBilingualPlanningPrompt()
+    {
+        var router = new CapturingRouter(
+            """{"intent":"Automation","steps":[{"toolName":"launch_app","arguments":"chrome","riskLevel":"Low"}]}""");
+        var planner = new OpenAiCompatibleAgentPlanner(router);
+
+        await planner.PlanAsync(new AgentPlannerRequest(
+            "open \u6d4f\u89c8\u5668",
+            AgentLanguage.Mixed,
+            ["launch_app"]));
+
+        router.LastPrompt.Should().Contain("Language mode: bilingual");
+    }
+
     private sealed class FakeRouter : IAgentModelRouter
     {
         private readonly string _response;
@@ -146,6 +194,31 @@ public class OpenAiCompatibleAgentPlannerTests
                 yield return token;
                 await Task.CompletedTask;
             }
+        }
+    }
+
+    private sealed class CapturingRouter : IAgentModelRouter
+    {
+        private readonly string _response;
+
+        public CapturingRouter(string response)
+        {
+            _response = response;
+        }
+
+        public string LastPrompt { get; private set; } = string.Empty;
+
+        public Task<string> CompleteAsync(string prompt)
+        {
+            LastPrompt = prompt;
+            return Task.FromResult(_response);
+        }
+
+        public async IAsyncEnumerable<string> StreamCompletionAsync(string prompt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            LastPrompt = prompt;
+            yield return _response;
+            await Task.Yield();
         }
     }
 

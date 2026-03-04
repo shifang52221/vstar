@@ -77,24 +77,90 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
     private static string BuildPrompt(AgentPlannerRequest request)
     {
         var tools = request.AvailableTools.Count == 0
-            ? "launch_app, open_url, open_path"
+            ? "launch_app, open_url, open_path, quick_action"
             : string.Join(", ", request.AvailableTools);
-        return
-            "You are a desktop launcher planner.\n" +
-            "Convert user input into strict JSON only.\n" +
-            "Schema:\n" +
-            "{\n" +
-            "  \"intent\": \"Automation|Search\",\n" +
-            "  \"steps\": [\n" +
-            "    {\n" +
-            "      \"toolName\": \"launch_app|open_url|open_path\",\n" +
-            "      \"arguments\": \"string\",\n" +
-            "      \"riskLevel\": \"Low|Medium|High\"\n" +
-            "    }\n" +
-            "  ]\n" +
-            "}\n" +
-            $"Available tools: {tools}\n" +
-            $"User input: {request.Input}";
+        var languageMode = ResolvePlanningLanguageMode(request);
+        var languageRule = languageMode switch
+        {
+            "zh-CN" => "Language rule: Use Chinese wording for any human-readable arguments when needed.",
+            "en-US" => "Language rule: Use English wording for any human-readable arguments when needed.",
+            _ => "Language rule: Keep bilingual-compatible wording for any human-readable arguments when needed."
+        };
+
+        return string.Join(
+            '\n',
+            [
+                "You are a desktop launcher planning assistant.",
+                "Output JSON only. Do not include markdown fences.",
+                $"Language mode: {languageMode}",
+                "Schema:",
+                "{",
+                "  \"intent\": \"Automation|Search\",",
+                "  \"steps\": [",
+                "    {",
+                "      \"toolName\": \"launch_app|open_url|open_path|quick_action\",",
+                "      \"arguments\": \"string\",",
+                "      \"riskLevel\": \"Low|Medium|High\"",
+                "    }",
+                "  ]",
+                "}",
+                "Rules:",
+                "- Use available tools only.",
+                "- Keep toolName machine-readable and unchanged.",
+                "- riskLevel must be one of Low, Medium, High.",
+                "- quick_action arguments must be one of shutdown, restart, lock, open_settings.",
+                languageRule,
+                $"Available tools: {tools}",
+                $"User input: {request.Input}"
+            ]);
+    }
+
+    private static string ResolvePlanningLanguageMode(AgentPlannerRequest request)
+    {
+        return request.Language switch
+        {
+            AgentLanguage.Chinese => "zh-CN",
+            AgentLanguage.English => "en-US",
+            AgentLanguage.Mixed => InferLanguageModeFromInput(request.Input),
+            _ => "bilingual"
+        };
+    }
+
+    private static string InferLanguageModeFromInput(string input)
+    {
+        var hasChinese = false;
+        var hasEnglish = false;
+
+        foreach (var ch in input)
+        {
+            if (ch >= '\u4e00' && ch <= '\u9fff')
+            {
+                hasChinese = true;
+                continue;
+            }
+
+            if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))
+            {
+                hasEnglish = true;
+            }
+        }
+
+        if (hasChinese && hasEnglish)
+        {
+            return "bilingual";
+        }
+
+        if (hasChinese)
+        {
+            return "zh-CN";
+        }
+
+        if (hasEnglish)
+        {
+            return "en-US";
+        }
+
+        return "bilingual";
     }
 
     private static AgentActionPlan? TryParsePlan(string completion, AgentPlannerRequest request)
