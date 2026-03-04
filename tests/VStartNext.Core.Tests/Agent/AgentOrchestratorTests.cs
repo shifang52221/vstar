@@ -38,6 +38,21 @@ public class AgentOrchestratorTests
     }
 
     [Fact]
+    public async Task PreviewAsync_WithChineseInput_PassesDetectedLanguageToPlannerRequest()
+    {
+        var planner = new CapturingPlanner();
+        var reflection = new FakeReflectionService();
+        var registry = new AgentToolRegistry([new FakeTool("launch_app")]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var orchestrator = new AgentOrchestrator(planner, executor, reflection);
+
+        await orchestrator.PreviewAsync("\u6253\u5f00 \u6d4f\u89c8\u5668");
+
+        planner.LastRequest.Should().NotBeNull();
+        planner.LastRequest!.Language.Should().Be(AgentLanguage.Chinese);
+    }
+
+    [Fact]
     public async Task PreviewAsync_ReturnsReflectedPlanSteps()
     {
         var planner = new FakePlanner();

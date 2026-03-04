@@ -2,6 +2,7 @@ namespace VStartNext.Core.Agent;
 
 public sealed class AgentOrchestrator : IAgentRunner
 {
+    private static readonly AgentResponseLanguagePolicy LanguagePolicy = new();
     private readonly IAgentPlanner _planner;
     private readonly AgentExecutor _executor;
     private readonly IAgentReflectionService _reflectionService;
@@ -24,7 +25,8 @@ public sealed class AgentOrchestrator : IAgentRunner
         IProgress<string>? planningProgress = null,
         CancellationToken cancellationToken = default)
     {
-        var request = new AgentPlannerRequest(input, AgentLanguage.Mixed, _availableTools);
+        var language = LanguagePolicy.Resolve(input, uiLanguage: string.Empty, followUiLanguage: false);
+        var request = new AgentPlannerRequest(input, language, _availableTools);
         var plan = await _planner.PlanAsync(request, planningProgress, cancellationToken);
         var reflectedPlan = await _reflectionService.ReflectAsync(plan);
         return new AgentExecutionPreview(input, reflectedPlan.Steps);

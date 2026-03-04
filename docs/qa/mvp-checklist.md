@@ -20,6 +20,7 @@
 - [ ] App agent gateway uses model router output for NL commands.
 - [ ] Agent gateway can execute orchestrator tool-chain output.
 - [ ] Planner can parse model JSON response into executable tool steps.
+- [ ] Orchestrator forwards detected input language to planner request.
 - [ ] Runtime launcher tools can execute app/url/path/quick actions safely.
 - [ ] Agent output includes step-by-step execution trace in UI result text.
 - [ ] Agent completion summary follows input language by default.
