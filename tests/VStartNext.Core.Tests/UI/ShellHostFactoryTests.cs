@@ -28,4 +28,20 @@ public class ShellHostFactoryTests
 
         mode.Should().Be(ShellHostMode.WinForms);
     }
+
+    [Fact]
+    public void Create_WithWinFormsMode_ReturnsWinFormsShellHost()
+    {
+        using var host = ShellHostFactory.Create(ShellHostMode.WinForms);
+
+        host.Should().BeOfType<WinFormsShellHost>();
+    }
+
+    [Fact]
+    public void Create_WithWinUiPreviewMode_ReturnsWinUiPreviewShellHost()
+    {
+        using var host = ShellHostFactory.Create(ShellHostMode.WinUiPreview);
+
+        host.Should().BeOfType<WinUiPreviewShellHost>();
+    }
 }

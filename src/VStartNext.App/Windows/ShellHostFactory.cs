@@ -17,9 +17,20 @@ public static class ShellHostFactory
     {
         return mode switch
         {
-            // Wave 1 fallback: keep runtime stable with WinForms while WinUI host is built incrementally.
-            ShellHostMode.WinUiPreview => new WinFormsShellHost(),
+            ShellHostMode.WinUiPreview => CreateWinUiPreviewHostWithFallback(),
             _ => new WinFormsShellHost()
         };
+    }
+
+    private static IAppShellHost CreateWinUiPreviewHostWithFallback()
+    {
+        try
+        {
+            return new WinUiPreviewShellHost();
+        }
+        catch
+        {
+            return new WinFormsShellHost();
+        }
     }
 }
