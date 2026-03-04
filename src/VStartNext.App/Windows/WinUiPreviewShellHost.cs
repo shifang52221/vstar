@@ -4,12 +4,11 @@ namespace VStartNext.App.Windows;
 
 public sealed class WinUiPreviewShellHost : IAppShellHost
 {
-    private readonly ShellWindowForm _shellWindow;
+    private readonly WinUiPreviewShellForm _shellWindow;
 
     public WinUiPreviewShellHost()
     {
-        _shellWindow = new ShellWindowForm();
-        _shellWindow.Text = "VStart Next (WinUI Preview Host)";
+        _shellWindow = new WinUiPreviewShellForm();
         _shellWindow.CommandSubmitted += ForwardCommandSubmitted;
     }
 
