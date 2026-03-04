@@ -1,5 +1,12 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Color x:Key="BrandColor">#2E8B57</Color>
-    <SolidColorBrush x:Key="BrandBrush" Color="{StaticResource BrandColor}" />
+    <Color x:Key="NeoBackgroundColor">#101116</Color>
+    <Color x:Key="NeoPanelColor">#22242C</Color>
+    <Color x:Key="NeoAccentColor">#33D17A</Color>
+    <Thickness x:Key="NeoSpacingSm">8</Thickness>
+    <Thickness x:Key="NeoSpacingMd">16</Thickness>
+    <Thickness x:Key="NeoSpacingLg">24</Thickness>
+    <SolidColorBrush x:Key="NeoBackgroundBrush" Color="{StaticResource NeoBackgroundColor}" />
+    <SolidColorBrush x:Key="NeoPanelBrush" Color="{StaticResource NeoPanelColor}" />
+    <SolidColorBrush x:Key="NeoAccentBrush" Color="{StaticResource NeoAccentColor}" />
 </ResourceDictionary>
