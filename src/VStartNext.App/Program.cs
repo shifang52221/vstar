@@ -3,6 +3,8 @@ using VStartNext.App.Agent;
 using VStartNext.App.Settings;
 using VStartNext.App.Win32;
 using VStartNext.App.Windows;
+using VStartNext.Core.Agent;
+using VStartNext.Infrastructure.Agent;
 using VStartNext.Infrastructure.AI;
 using VStartNext.Infrastructure.Security;
 using VStartNext.Infrastructure.Storage;
@@ -23,7 +25,22 @@ internal static class Program
             secretProtector,
             new ModelConnectionTester());
         var modelRouter = new OpenAiCompatibleAgentModelRouter(configStore, secretProtector);
-        var appAgentGateway = new AppAgentGateway(modelRouter);
+        var tools = new IAgentTool[]
+        {
+            new LaunchAppAgentTool(),
+            new OpenUrlAgentTool(),
+            new OpenPathAgentTool()
+        };
+        var toolRegistry = new AgentToolRegistry(tools);
+        var planner = new OpenAiCompatibleAgentPlanner(modelRouter);
+        var executor = new AgentExecutor(toolRegistry, new AgentPolicyGuard());
+        var reflectionService = new PassThroughAgentReflectionService();
+        var orchestrator = new AgentOrchestrator(
+            planner,
+            executor,
+            reflectionService,
+            tools.Select(x => x.Name).ToArray());
+        var appAgentGateway = new AppAgentGateway(modelRouter, orchestrator);
 
         using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
         using var shellWindow = new ShellWindowForm();

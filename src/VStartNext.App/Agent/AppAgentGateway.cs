@@ -14,10 +14,12 @@ public sealed class AppAgentGateway : IAppAgentGateway
 {
     private static readonly string[] Prefixes = ["calc:", "url:", "ws:"];
     private readonly IAgentModelRouter? _modelRouter;
+    private readonly IAgentRunner? _agentRunner;
 
-    public AppAgentGateway(IAgentModelRouter? modelRouter = null)
+    public AppAgentGateway(IAgentModelRouter? modelRouter = null, IAgentRunner? agentRunner = null)
     {
         _modelRouter = modelRouter;
+        _agentRunner = agentRunner;
     }
 
     public bool ShouldHandle(string input)
@@ -40,6 +42,11 @@ public sealed class AppAgentGateway : IAppAgentGateway
 
     public Task<CommandExecutionResult> ExecuteAsync(string input)
     {
+        if (_agentRunner is not null)
+        {
+            return ExecuteWithRunnerAsync(input);
+        }
+
         if (_modelRouter is null)
         {
             return Task.FromResult(new CommandExecutionResult(false, "Agent gateway is not configured"));
@@ -58,6 +65,30 @@ public sealed class AppAgentGateway : IAppAgentGateway
         catch (Exception ex)
         {
             return new CommandExecutionResult(false, $"Agent request failed: {ex.Message}");
+        }
+    }
+
+    private async Task<CommandExecutionResult> ExecuteWithRunnerAsync(string input)
+    {
+        try
+        {
+            var runResult = await _agentRunner!.RunAsync(input, autoConfirmHighRisk: true);
+            if (!runResult.Success)
+            {
+                return new CommandExecutionResult(false, runResult.Message);
+            }
+
+            if (runResult.Executions.Count == 0)
+            {
+                return new CommandExecutionResult(true, runResult.Message);
+            }
+
+            var summary = string.Join(", ", runResult.Executions.Select(x => $"{x.ToolName}({x.Arguments})"));
+            return new CommandExecutionResult(true, $"{runResult.Message}: {summary}");
+        }
+        catch (Exception ex)
+        {
+            return new CommandExecutionResult(false, $"Agent execution failed: {ex.Message}");
         }
     }
 }
