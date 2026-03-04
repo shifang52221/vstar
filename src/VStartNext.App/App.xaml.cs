@@ -2,6 +2,7 @@ using VStartNext.Infrastructure.Win32;
 using VStartNext.Core.Launch;
 using VStartNext.Core.Search;
 using VStartNext.Infrastructure.Launch;
+using VStartNext.App.Agent;
 
 namespace VStartNext.App;
 
@@ -9,11 +10,16 @@ public partial class App : IDisposable
 {
     private GlobalHotkeyService? _hotkeyService;
     private readonly CommandPaletteService _commandPaletteService;
+    private readonly IAppAgentGateway _agentGateway;
 
-    public App(bool enableSystemTrayIcon = true, ICommandActionExecutor? commandActionExecutor = null)
+    public App(
+        bool enableSystemTrayIcon = true,
+        ICommandActionExecutor? commandActionExecutor = null,
+        IAppAgentGateway? agentGateway = null)
     {
         Tray.Initialize(ToggleShellVisibility, createSystemTrayIcon: enableSystemTrayIcon);
         _commandPaletteService = new CommandPaletteService(commandActionExecutor ?? new LaunchCommandActionExecutor());
+        _agentGateway = agentGateway ?? new AppAgentGateway();
     }
 
     public Services.TrayService Tray { get; } = new();
@@ -40,7 +46,16 @@ public partial class App : IDisposable
 
     public async Task<CommandExecutionResult> HandleCommandInputAsync(string input)
     {
-        var result = await _commandPaletteService.ExecuteAsync(input);
+        CommandExecutionResult result;
+        if (_agentGateway.ShouldHandle(input))
+        {
+            result = await _agentGateway.ExecuteAsync(input);
+        }
+        else
+        {
+            result = await _commandPaletteService.ExecuteAsync(input);
+        }
+
         LastCommandResult = result;
         return result;
     }
