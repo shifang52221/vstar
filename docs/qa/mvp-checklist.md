@@ -23,6 +23,9 @@
 - [ ] Runtime launcher tools can execute app/url/path actions safely.
 - [ ] Agent output includes step-by-step execution trace in UI result text.
 - [ ] Agent completion summary follows input language by default.
+- [ ] Preview panel supports execute-all / single-step / cancel decisions.
+- [ ] Single-step execution mode only runs first planned action.
+- [ ] Agent audit store persists recent execution records.
 
 ## Stability
 
@@ -42,7 +45,7 @@
 
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigFileStoreTests|FullyQualifiedName~ModelSettingsServiceTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~ContextPanelControlTests|FullyQualifiedName~ShellWindowModelSettingsTests" -v minimal`
-- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentGatewayTests|FullyQualifiedName~OpenAiCompatibleAgentModelRouterTests|FullyQualifiedName~OpenAiCompatibleAgentPlannerTests|FullyQualifiedName~LauncherAgentToolTests" -v minimal`
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentGatewayTests|FullyQualifiedName~OpenAiCompatibleAgentModelRouterTests|FullyQualifiedName~OpenAiCompatibleAgentPlannerTests|FullyQualifiedName~LauncherAgentToolTests|FullyQualifiedName~AgentExecutionPreviewFormTests|FullyQualifiedName~AgentAuditFileStoreTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigModelSettingsTests|FullyQualifiedName~ModelConfigParseTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~DpapiSecretProtectorTests|FullyQualifiedName~ModelConnectionTesterTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal`
