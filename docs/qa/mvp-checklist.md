@@ -32,6 +32,7 @@
 - [ ] Single-step execution mode only runs first planned action.
 - [ ] Agent audit store persists recent execution records.
 - [ ] Execution progress dialog shows model-status stream and tool-step stream with cancel feedback.
+- [ ] Execution progress dialog status strip reflects phase transitions and cumulative stream tokens.
 - [ ] Execution dialog planning/finalizing lanes support cloud token streaming with fallback.
 - [ ] Planning lane replays token stream captured from real planner generation.
 - [ ] Planner prompt uses language-adaptive structured template (zh-CN/en-US/bilingual).
