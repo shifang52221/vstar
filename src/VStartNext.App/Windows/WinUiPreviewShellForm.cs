@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 using VStartNext.App.Styles;
+using VStartNext.App.Windows.Controls;
 
 namespace VStartNext.App.Windows;
 
@@ -8,7 +9,7 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
 {
     private readonly Panel _header;
     private readonly NeoThemeTokens _tokens;
-    private readonly NeoPanelView _neoPanel;
+    private readonly VstartClassicPanelView _launcherPanel;
     private readonly Label _aiBadgeLabel;
     private readonly Label _modelProfileLabel;
     private Action? _onOpenModelSettings;
@@ -18,13 +19,13 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
 
     public WinUiPreviewShellForm(NeoThemeTokens? tokens = null, Action? onOpenModelSettings = null)
     {
-        _tokens = tokens ?? NeoThemeTokens.Default();
+        _tokens = tokens ?? BuildClassicPreviewTokens();
         _onOpenModelSettings = onOpenModelSettings;
         Text = "VStart Next - WinUI Preview";
         StartPosition = FormStartPosition.CenterScreen;
-        Size = new Size(1080, 680);
-        MinimumSize = new Size(1080, 680);
-        FormBorderStyle = FormBorderStyle.Sizable;
+        Size = new Size(340, 760);
+        MinimumSize = new Size(320, 700);
+        FormBorderStyle = FormBorderStyle.SizableToolWindow;
         MaximizeBox = false;
         BackColor = ParseColor(_tokens.BackgroundColor, Color.FromArgb(12, 16, 24));
 
@@ -40,18 +41,18 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
         {
             Dock = DockStyle.Left,
             AutoSize = false,
-            Width = 340,
+            Width = 180,
             Cursor = Cursors.Hand,
             ForeColor = ParseColor(_tokens.TextPrimaryColor, Color.FromArgb(230, 240, 248)),
             Font = new Font("Segoe UI Semibold", 10f, FontStyle.Regular),
-            Text = "WinUI Preview Shell"
+            Text = "Vstart Next"
         };
         _header.Controls.Add(headerTitle);
 
         var headerMeta = new Panel
         {
             Dock = DockStyle.Right,
-            Width = 360,
+            Width = 150,
             Padding = new Padding(0),
             BackColor = Color.Transparent
         };
@@ -60,17 +61,17 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleRight,
             ForeColor = ParseColor(_tokens.TextSecondaryColor, Color.FromArgb(174, 188, 208)),
-            Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-            Text = "OpenAiCompatible / gpt-4.1-mini"
+            Font = new Font("Segoe UI", 7.8f, FontStyle.Regular),
+            Text = "OpenAI/gpt-4.1-mini"
         };
         _aiBadgeLabel = new Label
         {
             Dock = DockStyle.Right,
-            Width = 92,
+            Width = 82,
             TextAlign = ContentAlignment.MiddleCenter,
             ForeColor = ParseColor(_tokens.TextPrimaryColor, Color.FromArgb(230, 240, 248)),
             BackColor = ParseColor(_tokens.CommandBarColor, Color.FromArgb(28, 30, 38)),
-            Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Regular),
+            Font = new Font("Segoe UI Semibold", 7.8f, FontStyle.Regular),
             Text = "Cloud AI"
         };
         headerMeta.Controls.Add(_modelProfileLabel);
@@ -80,12 +81,12 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
         _header.Click += (_, _) => HandleHeaderInteraction();
         headerTitle.Click += (_, _) => HandleHeaderInteraction();
 
-        _neoPanel = new NeoPanelView(_tokens);
-        _neoPanel.Dock = DockStyle.Fill;
-        _neoPanel.CommandSubmitted += (_, input) => CommandSubmitted?.Invoke(this, input);
-        _neoPanel.AiSettingsRequested += (_, _) => _onOpenModelSettings?.Invoke();
+        _launcherPanel = new VstartClassicPanelView(_tokens);
+        _launcherPanel.Dock = DockStyle.Fill;
+        _launcherPanel.CommandSubmitted += (_, input) => CommandSubmitted?.Invoke(this, input);
+        _launcherPanel.AiSettingsRequested += (_, _) => _onOpenModelSettings?.Invoke();
 
-        Controls.Add(_neoPanel);
+        Controls.Add(_launcherPanel);
         Controls.Add(_header);
     }
 
@@ -111,12 +112,12 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
 
     public void SubmitCommandForTesting(string input)
     {
-        _neoPanel.SubmitCommandForTesting(input);
+        _launcherPanel.SubmitCommandForTesting(input);
     }
 
     public void TriggerAiSettingsForTesting()
     {
-        _neoPanel.TriggerAiSettingsForTesting();
+        _launcherPanel.TriggerAiSettingsForTesting();
     }
 
     public NeoThemeTokens ThemeTokensForTesting => _tokens;
@@ -125,11 +126,15 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
 
     public int HeaderInteractionCountForTesting => _headerInteractionCountForTesting;
 
-    public bool CommandFocusRequestedForTesting => _neoPanel.FocusCommandRequestedForTesting;
+    public bool CommandFocusRequestedForTesting => _launcherPanel.FocusCommandRequestedForTesting;
 
     public string AiBadgeTextForTesting => _aiBadgeLabel.Text;
 
     public string ModelProfileTextForTesting => _modelProfileLabel.Text;
+
+    public bool UsesClassicLauncherSurfaceForTesting => _launcherPanel is not null;
+
+    public int LauncherCategoryCountForTesting => _launcherPanel.LauncherCategoryCountForTesting;
 
     public void TriggerHeaderInteractionForTesting()
     {
@@ -151,7 +156,25 @@ public sealed class WinUiPreviewShellForm : Form, IShellWindow
     private void HandleHeaderInteraction()
     {
         _headerInteractionCountForTesting++;
-        _neoPanel.FocusCommandInput();
+        _launcherPanel.FocusCommandInput();
+    }
+
+    private static NeoThemeTokens BuildClassicPreviewTokens()
+    {
+        return new NeoThemeTokens(
+            BackgroundColor: "#EAEAEA",
+            PanelColor: "#D8EAD4",
+            HeaderColor: "#2FAA45",
+            AccentColor: "#2FAA45",
+            TextPrimaryColor: "#FFFFFF",
+            TextSecondaryColor: "#E6F5E6",
+            CommandBarColor: "#27963C",
+            CommandInputColor: "#FFFFFF",
+            RadiusSmall: 6,
+            RadiusLarge: 10,
+            SpacingSm: 6,
+            SpacingMd: 10,
+            SpacingLg: 16);
     }
 
     private static Color ParseColor(string value, Color fallback)

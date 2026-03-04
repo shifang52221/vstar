@@ -46,4 +46,22 @@ public class WinUiPreviewShellFormTests
 
         form.ModelProfileTextForTesting.Should().Be("OpenAiCompatible / gpt-4.1-mini");
     }
+
+    [Fact]
+    public void Constructor_UsesCompactWindowProfile_ForLauncherStyle()
+    {
+        using var form = new WinUiPreviewShellForm(NeoThemeTokens.Default());
+
+        form.Width.Should().BeLessThanOrEqualTo(420);
+        form.Height.Should().BeGreaterThanOrEqualTo(700);
+    }
+
+    [Fact]
+    public void Constructor_UsesClassicLauncherSurface()
+    {
+        using var form = new WinUiPreviewShellForm(NeoThemeTokens.Default());
+
+        form.UsesClassicLauncherSurfaceForTesting.Should().BeTrue();
+        form.LauncherCategoryCountForTesting.Should().BeGreaterThanOrEqualTo(2);
+    }
 }
