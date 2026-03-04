@@ -42,13 +42,16 @@ internal static class Program
             reflectionService,
             tools.Select(x => x.Name).ToArray());
         var auditStore = new AgentAuditFileStore();
-        using var shellWindow = new ShellWindowForm();
+        var shellHostMode = ShellHostFactory.ResolveMode(
+            Environment.GetEnvironmentVariable("VSTART_SHELL_MODE"));
+        using var shellHost = ShellHostFactory.Create(shellHostMode);
+        var shellWindow = shellHost.ShellWindow;
         var appAgentGateway = new AppAgentGateway(
             modelRouter,
             orchestrator,
-            selectExecutionMode: preview => ShowAgentExecutionPreview(shellWindow, preview),
+            selectExecutionMode: preview => ShowAgentExecutionPreview(shellHost.OwnerWindow, preview),
             runWithProgress: (preview, planningTokens, run) =>
-                ShowAgentExecutionProgress(shellWindow, modelRouter, preview, planningTokens, run),
+                ShowAgentExecutionProgress(shellHost.OwnerWindow, modelRouter, preview, planningTokens, run),
             confirmHighRiskAction: message =>
                 MessageBox.Show(
                     $"{message}\n\nContinue?",
@@ -60,12 +63,12 @@ internal static class Program
             followUiLanguage: false);
 
         using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
-        shellWindow.SetOpenModelSettingsHandler(() => ShowModelSettingsDialog(shellWindow, modelSettingsService));
+        shellHost.SetOpenModelSettingsHandler(() => ShowModelSettingsDialog(shellHost.OwnerWindow, modelSettingsService));
         var shellWindowController = new ShellWindowController(shellWindow);
         shellWindow.HideShell();
 
         app.ShellVisibilityChanged += shellWindowController.ApplyVisibility;
-        shellWindow.CommandSubmitted += async (_, input) => await app.HandleCommandInputAsync(input);
+        shellHost.CommandSubmitted += async (_, input) => await app.HandleCommandInputAsync(input);
         using var window = new HotkeyMessageWindow(app.HandleWindowMessage);
         app.InitializeHotkey(window.Handle);
 

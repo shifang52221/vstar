@@ -3,6 +3,7 @@
 ## Core Flow
 
 - [ ] Alt+Space toggles launcher visibility.
+- [ ] Shell host mode routing defaults to WinForms and supports WinUI preview flag.
 - [ ] Search returns browser apps for `ch` query.
 - [ ] Launching a missing target shows readable error.
 - [ ] Pinned items rank above non-pinned in catalog list.
