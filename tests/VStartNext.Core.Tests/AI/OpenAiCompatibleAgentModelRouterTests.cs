@@ -58,6 +58,148 @@ public class OpenAiCompatibleAgentModelRouterTests
         }
     }
 
+    [Fact]
+    public async Task CompleteAsync_WhenPlannerModelMissing_FallsBackToChatModel()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vstartnext-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new AppConfigFileStore(path);
+            store.Save(new AppConfig
+            {
+                SchemaVersion = 1,
+                ModelSettings = new AiModelSettings
+                {
+                    BaseUrl = "https://api.example.com/v1",
+                    EncryptedApiKey = "enc:api-key",
+                    Route = new AiModelRouteSettings
+                    {
+                        PlannerModel = string.Empty,
+                        ChatModel = "gpt-chat",
+                        ReflectionModel = "gpt-ref"
+                    }
+                }
+            });
+
+            var handler = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"choices":[{"message":{"content":"chat-result"}}]}""")
+            });
+            var router = new OpenAiCompatibleAgentModelRouter(store, new FakeProtector(), new HttpClient(handler));
+
+            var result = await router.CompleteAsync("hello");
+
+            result.Should().Be("chat-result");
+            handler.LastBody.Should().Contain("\"model\":\"gpt-chat\"");
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenPlannerModelReturns404_TriesNextModel()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vstartnext-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new AppConfigFileStore(path);
+            store.Save(new AppConfig
+            {
+                SchemaVersion = 1,
+                ModelSettings = new AiModelSettings
+                {
+                    BaseUrl = "https://api.example.com/v1",
+                    EncryptedApiKey = "enc:api-key",
+                    Route = new AiModelRouteSettings
+                    {
+                        PlannerModel = "gpt-plan",
+                        ChatModel = "gpt-chat",
+                        ReflectionModel = "gpt-ref"
+                    }
+                }
+            });
+
+            var responses = new Queue<HttpResponseMessage>(new[]
+            {
+                new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent("""{"error":"model_not_found"}""")
+                },
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"choices":[{"message":{"content":"fallback-result"}}]}""")
+                }
+            });
+            var handler = new CaptureHandler(_ => responses.Dequeue());
+            var router = new OpenAiCompatibleAgentModelRouter(store, new FakeProtector(), new HttpClient(handler));
+
+            var result = await router.CompleteAsync("hello");
+
+            result.Should().Be("fallback-result");
+            handler.RequestBodies.Should().HaveCount(2);
+            handler.RequestBodies[0].Should().Contain("\"model\":\"gpt-plan\"");
+            handler.RequestBodies[1].Should().Contain("\"model\":\"gpt-chat\"");
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WhenAllModelsFail_ThrowsLastModelProviderError()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vstartnext-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new AppConfigFileStore(path);
+            store.Save(new AppConfig
+            {
+                SchemaVersion = 1,
+                ModelSettings = new AiModelSettings
+                {
+                    BaseUrl = "https://api.example.com/v1",
+                    EncryptedApiKey = "enc:api-key",
+                    RetryCount = 0,
+                    Route = new AiModelRouteSettings
+                    {
+                        PlannerModel = "gpt-plan",
+                        ChatModel = "gpt-chat",
+                        ReflectionModel = "gpt-ref"
+                    }
+                }
+            });
+
+            var handler = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
+            {
+                Content = new StringContent("""{"error":"invalid_model"}""")
+            });
+            var router = new OpenAiCompatibleAgentModelRouter(store, new FakeProtector(), new HttpClient(handler));
+
+            Func<Task> act = () => router.CompleteAsync("hello");
+
+            await act.Should()
+                .ThrowAsync<InvalidOperationException>()
+                .WithMessage("*400*");
+            handler.RequestBodies.Should().HaveCount(3);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
     private sealed class FakeProtector : ISecretProtector
     {
         public string Protect(string plaintext) => $"enc:{plaintext}";
@@ -76,11 +218,13 @@ public class OpenAiCompatibleAgentModelRouterTests
 
         public HttpRequestMessage? LastRequest { get; private set; }
         public string LastBody { get; private set; } = string.Empty;
+        public List<string> RequestBodies { get; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
             LastBody = request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken);
+            RequestBodies.Add(LastBody);
             return _responder(request);
         }
     }

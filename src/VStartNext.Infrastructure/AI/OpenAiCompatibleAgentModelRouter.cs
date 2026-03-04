@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using VStartNext.Core.Agent;
+using VStartNext.Core.Config;
 using VStartNext.Infrastructure.Security;
 using VStartNext.Infrastructure.Storage;
 
@@ -36,12 +37,126 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
             throw new InvalidOperationException("Model API key is not configured.");
         }
 
+        var candidateModels = ResolveCandidateModels(config.Route);
+        if (candidateModels.Count == 0)
+        {
+            throw new InvalidOperationException("No model route is configured.");
+        }
+
         var apiKey = _secretProtector.Unprotect(config.EncryptedApiKey);
+        ModelProviderException? lastFailure = null;
+        foreach (var model in candidateModels)
+        {
+            try
+            {
+                return await CompleteWithModelAsync(config, apiKey, prompt, model);
+            }
+            catch (ModelProviderException ex) when (ex.CanTryNextModel)
+            {
+                lastFailure = ex;
+                continue;
+            }
+        }
+
+        throw new InvalidOperationException(lastFailure?.Message ?? "Model request failed.");
+    }
+
+    private static string NormalizeBaseUrl(string baseUrl)
+    {
+        var value = baseUrl.Trim();
+        return value.EndsWith("/", StringComparison.Ordinal) ? value : $"{value}/";
+    }
+
+    private async Task<string> CompleteWithModelAsync(
+        AiModelSettings config,
+        string apiKey,
+        string prompt,
+        string model)
+    {
+        var retries = Math.Max(0, config.RetryCount);
         var endpoint = new Uri(new Uri(NormalizeBaseUrl(config.BaseUrl)), "chat/completions");
 
+        for (var attempt = 0; attempt <= retries; attempt++)
+        {
+            try
+            {
+                using var request = BuildRequest(endpoint, apiKey, prompt, config, model);
+                using var cts = BuildTimeoutCts(config.TimeoutSeconds);
+                using var response = await _httpClient.SendAsync(request, cts.Token);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var body = await response.Content.ReadAsStringAsync();
+                    return ParseMessage(body);
+                }
+
+                var statusCode = (int)response.StatusCode;
+                if (IsRetryableStatusCode(response.StatusCode) && attempt < retries)
+                {
+                    continue;
+                }
+
+                var canTryNextModel = response.StatusCode != System.Net.HttpStatusCode.Unauthorized &&
+                    response.StatusCode != System.Net.HttpStatusCode.Forbidden;
+                throw new ModelProviderException($"Model provider returned {statusCode}", canTryNextModel);
+            }
+            catch (TaskCanceledException) when (attempt < retries)
+            {
+                continue;
+            }
+            catch (HttpRequestException) when (attempt < retries)
+            {
+                continue;
+            }
+            catch (TaskCanceledException ex)
+            {
+                throw new ModelProviderException($"Model request timed out for model '{model}'", true, ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new ModelProviderException($"Model request failed for model '{model}': {ex.Message}", true, ex);
+            }
+        }
+
+        throw new ModelProviderException($"Model request failed for model '{model}'", true);
+    }
+
+    private static IReadOnlyList<string> ResolveCandidateModels(AiModelRouteSettings route)
+    {
+        var result = new List<string>();
+
+        AddIfPresent(route.PlannerModel);
+        AddIfPresent(route.ChatModel);
+        AddIfPresent(route.ReflectionModel);
+        return result;
+
+        void AddIfPresent(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            var model = value.Trim();
+            if (result.Any(existing => string.Equals(existing, model, StringComparison.OrdinalIgnoreCase)))
+            {
+                return;
+            }
+
+            result.Add(model);
+        }
+    }
+
+    private static HttpRequestMessage BuildRequest(
+        Uri endpoint,
+        string apiKey,
+        string prompt,
+        AiModelSettings config,
+        string model)
+    {
         var payload = new
         {
-            model = config.Route.PlannerModel,
+            model,
             temperature = config.Temperature,
             max_tokens = config.MaxTokens,
             messages = new[]
@@ -50,27 +165,30 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
             }
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(
             JsonSerializer.Serialize(payload),
             Encoding.UTF8,
             "application/json");
-
-        using var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException($"Model provider returned {(int)response.StatusCode}");
-        }
-
-        var body = await response.Content.ReadAsStringAsync();
-        return ParseMessage(body);
+        return request;
     }
 
-    private static string NormalizeBaseUrl(string baseUrl)
+    private static CancellationTokenSource BuildTimeoutCts(int timeoutSeconds)
     {
-        var value = baseUrl.Trim();
-        return value.EndsWith("/", StringComparison.Ordinal) ? value : $"{value}/";
+        return timeoutSeconds > 0
+            ? new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds))
+            : new CancellationTokenSource();
+    }
+
+    private static bool IsRetryableStatusCode(System.Net.HttpStatusCode statusCode)
+    {
+        return statusCode == System.Net.HttpStatusCode.RequestTimeout ||
+            statusCode == System.Net.HttpStatusCode.TooManyRequests ||
+            statusCode == System.Net.HttpStatusCode.BadGateway ||
+            statusCode == System.Net.HttpStatusCode.ServiceUnavailable ||
+            statusCode == System.Net.HttpStatusCode.GatewayTimeout ||
+            (int)statusCode >= 500;
     }
 
     private static string ParseMessage(string json)
@@ -90,5 +208,16 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
         }
 
         return contentElement.GetString() ?? string.Empty;
+    }
+
+    private sealed class ModelProviderException : Exception
+    {
+        public ModelProviderException(string message, bool canTryNextModel, Exception? innerException = null)
+            : base(message, innerException)
+        {
+            CanTryNextModel = canTryNextModel;
+        }
+
+        public bool CanTryNextModel { get; }
     }
 }
