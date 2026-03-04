@@ -1,4 +1,5 @@
 using FluentAssertions;
+using System.Runtime.CompilerServices;
 using VStartNext.Core.Agent;
 using VStartNext.Infrastructure.AI;
 using Xunit;
@@ -72,6 +73,12 @@ public class OpenAiCompatibleAgentPlannerTests
         public Task<string> CompleteAsync(string prompt)
         {
             return Task.FromResult(_response);
+        }
+
+        public async IAsyncEnumerable<string> StreamCompletionAsync(string prompt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return _response;
+            await Task.Yield();
         }
     }
 }

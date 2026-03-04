@@ -1,22 +1,30 @@
 using VStartNext.Core.Agent;
+using System.Text;
 
 namespace VStartNext.App.Windows;
 
 public sealed class AgentExecutionProgressForm : Form
 {
     private readonly Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> _runner;
+    private readonly Func<CancellationToken, IAsyncEnumerable<string>>? _planningTokenStream;
+    private readonly Func<AgentRunResult, CancellationToken, IAsyncEnumerable<string>>? _finalizingTokenStream;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly List<string> _modelLines = [];
     private readonly List<AgentExecutionUpdate> _toolUpdates = [];
+    private readonly StringBuilder _modelTranscript = new();
     private readonly TextBox _modelStreamBox = new();
     private readonly ListView _progressView = new();
     private readonly Button _cancelButton = new();
 
     public AgentExecutionProgressForm(
         AgentExecutionPreview preview,
-        Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> runner)
+        Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> runner,
+        Func<CancellationToken, IAsyncEnumerable<string>>? planningTokenStream = null,
+        Func<AgentRunResult, CancellationToken, IAsyncEnumerable<string>>? finalizingTokenStream = null)
     {
         _runner = runner;
+        _planningTokenStream = planningTokenStream;
+        _finalizingTokenStream = finalizingTokenStream;
 
         Text = "Agent Execution Progress";
         StartPosition = FormStartPosition.CenterParent;
@@ -86,6 +94,7 @@ public sealed class AgentExecutionProgressForm : Form
     public AgentRunResult? RunResult { get; private set; }
     public int ToolUpdateCountForTesting => _toolUpdates.Count;
     public IReadOnlyList<string> ModelLinesForTesting => _modelLines;
+    public string ModelStreamTextForTesting => _modelTranscript.ToString();
 
     public void TriggerCancelForTesting()
     {
@@ -103,13 +112,36 @@ public sealed class AgentExecutionProgressForm : Form
     private async Task RunExecutionAsync()
     {
         AppendModelLine("Agent execution started.");
+        await AppendTokenStreamAsync(
+            "Planning",
+            _planningTokenStream,
+            "Planning stream unavailable.");
         try
         {
             var progress = new UiProgress(this);
             RunResult = await _runner(_cancellationTokenSource.Token, progress);
-            AppendModelLine(RunResult.Success
-                ? "Agent execution completed."
-                : $"Agent execution failed: {RunResult.Message}");
+            if (RunResult is null)
+            {
+                RunResult = new AgentRunResult(false, "Execution failed", []);
+            }
+
+            var runResult = RunResult!;
+            if (!_cancellationTokenSource.IsCancellationRequested &&
+                runResult is not null &&
+                _finalizingTokenStream is not null)
+            {
+                await AppendTokenStreamAsync(
+                    "Finalizing",
+                    cancellationToken => _finalizingTokenStream(runResult, cancellationToken),
+                    "Finalizing stream unavailable.");
+            }
+
+            if (RunResult is { } finalResult)
+            {
+                AppendModelLine(finalResult.Success
+                    ? "Agent execution completed."
+                    : $"Agent execution failed: {finalResult.Message}");
+            }
         }
         catch (OperationCanceledException)
         {
@@ -128,6 +160,51 @@ public sealed class AgentExecutionProgressForm : Form
                 DialogResult = RunResult?.Success == true ? DialogResult.OK : DialogResult.Cancel;
                 Close();
             }
+        }
+    }
+
+    private async Task AppendTokenStreamAsync(
+        string phase,
+        Func<CancellationToken, IAsyncEnumerable<string>>? streamFactory,
+        string fallbackMessage)
+    {
+        if (streamFactory is null)
+        {
+            return;
+        }
+
+        AppendModelLine($"{phase}...");
+        try
+        {
+            var hasToken = false;
+            await foreach (var token in streamFactory(_cancellationTokenSource.Token)
+                               .WithCancellation(_cancellationTokenSource.Token))
+            {
+                if (string.IsNullOrEmpty(token))
+                {
+                    continue;
+                }
+
+                hasToken = true;
+                AppendModelToken(token);
+            }
+
+            if (hasToken)
+            {
+                _modelStreamBox.AppendText(Environment.NewLine);
+            }
+            else
+            {
+                AppendModelLine(fallbackMessage);
+            }
+        }
+        catch (OperationCanceledException) when (_cancellationTokenSource.IsCancellationRequested)
+        {
+            // no-op; cancellation line is written by the main flow
+        }
+        catch
+        {
+            AppendModelLine(fallbackMessage);
         }
     }
 
@@ -184,7 +261,14 @@ public sealed class AgentExecutionProgressForm : Form
         }
 
         _modelLines.Add(message);
+        _modelTranscript.AppendLine(message);
         _modelStreamBox.AppendText(message + Environment.NewLine);
+    }
+
+    private void AppendModelToken(string token)
+    {
+        _modelTranscript.Append(token);
+        _modelStreamBox.AppendText(token);
     }
 
     private sealed class UiProgress : IProgress<AgentExecutionUpdate>

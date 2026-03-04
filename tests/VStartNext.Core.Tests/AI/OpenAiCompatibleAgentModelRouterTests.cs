@@ -200,6 +200,60 @@ public class OpenAiCompatibleAgentModelRouterTests
         }
     }
 
+    [Fact]
+    public async Task StreamCompletionAsync_ParsesSseTokensInOrder()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"vstartnext-{Guid.NewGuid():N}.json");
+        try
+        {
+            var store = new AppConfigFileStore(path);
+            store.Save(new AppConfig
+            {
+                SchemaVersion = 1,
+                ModelSettings = new AiModelSettings
+                {
+                    BaseUrl = "https://api.example.com/v1",
+                    EncryptedApiKey = "enc:api-key",
+                    Route = new AiModelRouteSettings
+                    {
+                        PlannerModel = "gpt-plan",
+                        ChatModel = "gpt-chat",
+                        ReflectionModel = "gpt-ref"
+                    }
+                }
+            });
+
+            var sseBody = """
+                data: {"choices":[{"delta":{"content":"Hel"}}]}
+
+                data: {"choices":[{"delta":{"content":"lo"}}]}
+
+                data: [DONE]
+                """;
+            var handler = new CaptureHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(sseBody)
+            });
+            var router = new OpenAiCompatibleAgentModelRouter(store, new FakeProtector(), new HttpClient(handler));
+            var tokens = new List<string>();
+
+            await foreach (var token in router.StreamCompletionAsync("hello"))
+            {
+                tokens.Add(token);
+            }
+
+            tokens.Should().Equal("Hel", "lo");
+            handler.LastBody.Should().Contain("\"stream\":true");
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
     private sealed class FakeProtector : ISecretProtector
     {
         public string Protect(string plaintext) => $"enc:{plaintext}";

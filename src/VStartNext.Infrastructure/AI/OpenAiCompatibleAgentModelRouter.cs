@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using VStartNext.Core.Agent;
@@ -59,6 +60,120 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
         }
 
         throw new InvalidOperationException(lastFailure?.Message ?? "Model request failed.");
+    }
+
+    public async IAsyncEnumerable<string> StreamCompletionAsync(
+        string prompt,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var config = _configStore.Load().ModelSettings;
+        if (string.IsNullOrWhiteSpace(config.BaseUrl))
+        {
+            throw new InvalidOperationException("Model BaseUrl is not configured.");
+        }
+
+        if (string.IsNullOrWhiteSpace(config.EncryptedApiKey))
+        {
+            throw new InvalidOperationException("Model API key is not configured.");
+        }
+
+        var candidateModels = ResolveCandidateModels(config.Route);
+        if (candidateModels.Count == 0)
+        {
+            throw new InvalidOperationException("No model route is configured.");
+        }
+
+        var apiKey = _secretProtector.Unprotect(config.EncryptedApiKey);
+        string? lastFailureMessage = null;
+        foreach (var model in candidateModels)
+        {
+            var retries = Math.Max(0, config.RetryCount);
+            for (var attempt = 0; attempt <= retries; attempt++)
+            {
+                using var request = BuildRequest(
+                    new Uri(new Uri(NormalizeBaseUrl(config.BaseUrl)), "chat/completions"),
+                    apiKey,
+                    prompt,
+                    config,
+                    model,
+                    stream: true);
+                using var timeoutCts = BuildTimeoutCts(config.TimeoutSeconds);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken,
+                    timeoutCts.Token);
+
+                HttpResponseMessage response;
+                try
+                {
+                    response = await _httpClient.SendAsync(
+                        request,
+                        HttpCompletionOption.ResponseHeadersRead,
+                        linkedCts.Token);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < retries)
+                {
+                    continue;
+                }
+                catch (HttpRequestException) when (attempt < retries)
+                {
+                    continue;
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (OperationCanceledException)
+                {
+                    lastFailureMessage = $"Model stream timed out for model '{model}'";
+                    break;
+                }
+                catch (HttpRequestException ex)
+                {
+                    lastFailureMessage = $"Model stream failed for model '{model}': {ex.Message}";
+                    break;
+                }
+
+                using (response)
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var hasTokens = false;
+                        await foreach (var token in ParseSseTokensAsync(response, linkedCts.Token)
+                                           .WithCancellation(cancellationToken))
+                        {
+                            hasTokens = true;
+                            yield return token;
+                        }
+
+                        if (hasTokens)
+                        {
+                            yield break;
+                        }
+
+                        lastFailureMessage = $"Model stream returned empty content for model '{model}'";
+                        break;
+                    }
+
+                    var statusCode = (int)response.StatusCode;
+                    if (IsRetryableStatusCode(response.StatusCode) && attempt < retries)
+                    {
+                        continue;
+                    }
+
+                    var canTryNextModel = response.StatusCode != System.Net.HttpStatusCode.Unauthorized &&
+                        response.StatusCode != System.Net.HttpStatusCode.Forbidden;
+                    if (!canTryNextModel)
+                    {
+                        throw new InvalidOperationException($"Model provider returned {statusCode}");
+                    }
+
+                    lastFailureMessage = $"Model provider returned {statusCode}";
+                    break;
+                }
+            }
+        }
+
+        throw new InvalidOperationException(lastFailureMessage ?? "Model stream request failed.");
     }
 
     private static string NormalizeBaseUrl(string baseUrl)
@@ -152,13 +267,15 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
         string apiKey,
         string prompt,
         AiModelSettings config,
-        string model)
+        string model,
+        bool stream = false)
     {
         var payload = new
         {
             model,
             temperature = config.Temperature,
             max_tokens = config.MaxTokens,
+            stream,
             messages = new[]
             {
                 new { role = "user", content = prompt }
@@ -172,6 +289,45 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
             Encoding.UTF8,
             "application/json");
         return request;
+    }
+
+    private static async IAsyncEnumerable<string> ParseSseTokensAsync(
+        HttpResponseMessage response,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+        while (!reader.EndOfStream)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var line = await reader.ReadLineAsync();
+            if (line is null)
+            {
+                yield break;
+            }
+
+            if (!line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var data = line[5..].Trim();
+            if (data.Length == 0)
+            {
+                continue;
+            }
+
+            if (string.Equals(data, "[DONE]", StringComparison.OrdinalIgnoreCase))
+            {
+                yield break;
+            }
+
+            var token = ParseSseToken(data);
+            if (!string.IsNullOrEmpty(token))
+            {
+                yield return token;
+            }
+        }
     }
 
     private static CancellationTokenSource BuildTimeoutCts(int timeoutSeconds)
@@ -208,6 +364,39 @@ public sealed class OpenAiCompatibleAgentModelRouter : IAgentModelRouter
         }
 
         return contentElement.GetString() ?? string.Empty;
+    }
+
+    private static string ParseSseToken(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+            {
+                return string.Empty;
+            }
+
+            var first = choices[0];
+            if (first.TryGetProperty("delta", out var delta) &&
+                delta.TryGetProperty("content", out var contentElement) &&
+                contentElement.ValueKind == JsonValueKind.String)
+            {
+                return contentElement.GetString() ?? string.Empty;
+            }
+
+            if (first.TryGetProperty("message", out var message) &&
+                message.TryGetProperty("content", out contentElement) &&
+                contentElement.ValueKind == JsonValueKind.String)
+            {
+                return contentElement.GetString() ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private sealed class ModelProviderException : Exception

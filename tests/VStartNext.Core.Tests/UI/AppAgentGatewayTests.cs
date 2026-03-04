@@ -1,4 +1,5 @@
-﻿using FluentAssertions;
+using FluentAssertions;
+using System.Runtime.CompilerServices;
 using VStartNext.App.Agent;
 using VStartNext.Core.Agent;
 using Xunit;
@@ -215,12 +216,29 @@ public class AppAgentGatewayTests
         {
             return Task.FromResult(_response);
         }
+
+        public async IAsyncEnumerable<string> StreamCompletionAsync(string prompt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            yield return _response;
+            await Task.Yield();
+        }
     }
 
     private sealed class ThrowingRouter : IAgentModelRouter
     {
         public Task<string> CompleteAsync(string prompt)
         {
+            throw new InvalidOperationException("boom");
+        }
+
+        public async IAsyncEnumerable<string> StreamCompletionAsync(string prompt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            if (prompt.Length < 0)
+            {
+                yield return string.Empty;
+            }
+
+            await Task.Yield();
             throw new InvalidOperationException("boom");
         }
     }

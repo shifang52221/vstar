@@ -27,6 +27,7 @@
 - [ ] Single-step execution mode only runs first planned action.
 - [ ] Agent audit store persists recent execution records.
 - [ ] Execution progress dialog shows model-status stream and tool-step stream with cancel feedback.
+- [ ] Execution dialog planning/finalizing lanes support cloud token streaming with fallback.
 
 ## Stability
 

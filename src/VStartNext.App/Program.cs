@@ -46,7 +46,7 @@ internal static class Program
             modelRouter,
             orchestrator,
             selectExecutionMode: preview => ShowAgentExecutionPreview(shellWindow, preview),
-            runWithProgress: (preview, run) => ShowAgentExecutionProgress(shellWindow, preview, run),
+            runWithProgress: (preview, run) => ShowAgentExecutionProgress(shellWindow, modelRouter, preview, run),
             confirmHighRiskAction: message =>
                 MessageBox.Show(
                     $"{message}\n\nContinue?",
@@ -89,11 +89,47 @@ internal static class Program
 
     private static Task<AgentRunResult> ShowAgentExecutionProgress(
         IWin32Window owner,
+        IAgentModelRouter modelRouter,
         AgentExecutionPreview preview,
         Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> run)
     {
-        using var dialog = new AgentExecutionProgressForm(preview, run);
+        using var dialog = new AgentExecutionProgressForm(
+            preview,
+            run,
+            planningTokenStream: cancellationToken =>
+                modelRouter.StreamCompletionAsync(BuildPlanningPrompt(preview), cancellationToken),
+            finalizingTokenStream: (result, cancellationToken) =>
+                modelRouter.StreamCompletionAsync(BuildFinalizingPrompt(preview, result), cancellationToken));
         dialog.ShowDialog(owner);
         return Task.FromResult(dialog.RunResult ?? new AgentRunResult(false, "Execution canceled", []));
+    }
+
+    private static string BuildPlanningPrompt(AgentExecutionPreview preview)
+    {
+        if (preview.Steps.Count == 0)
+        {
+            return
+                "You are an assistant. Output only concise planning text for execution preview. " +
+                $"User input: {preview.Input}. No executable steps were detected.";
+        }
+
+        var steps = preview.Steps
+            .Select((step, index) => $"{index + 1}. {step.ToolName}({step.Arguments}) [{step.RiskLevel}]");
+        return
+            "You are an assistant. Output concise planning status text in plain language only. " +
+            $"User input: {preview.Input}. Planned steps: {string.Join("; ", steps)}.";
+    }
+
+    private static string BuildFinalizingPrompt(AgentExecutionPreview preview, AgentRunResult result)
+    {
+        var executions = result.Executions.Count == 0
+            ? "No executed steps."
+            : string.Join(
+                "; ",
+                result.Executions.Select((execution, index) =>
+                    $"{index + 1}. {execution.ToolName}({execution.Arguments}) => {execution.Message}"));
+        return
+            "You are an assistant. Output concise final summary text in plain language only. " +
+            $"User input: {preview.Input}. Success: {result.Success}. Message: {result.Message}. Executions: {executions}.";
     }
 }
