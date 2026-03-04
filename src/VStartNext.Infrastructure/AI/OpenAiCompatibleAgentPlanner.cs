@@ -57,35 +57,59 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
         {
             using var doc = JsonDocument.Parse(jsonText);
             var root = doc.RootElement;
-
-            var intent = AgentIntent.Automation;
-            if (root.TryGetProperty("intent", out var intentElement))
+            if (root.ValueKind != JsonValueKind.Object)
             {
-                intent = ParseIntent(intentElement.GetString());
+                return null;
+            }
+
+            if (!root.TryGetProperty("intent", out var intentElement) ||
+                intentElement.ValueKind != JsonValueKind.String ||
+                !Enum.TryParse<AgentIntent>(intentElement.GetString(), true, out var intent))
+            {
+                return null;
+            }
+
+            if (!root.TryGetProperty("steps", out var stepsElement) || stepsElement.ValueKind != JsonValueKind.Array)
+            {
+                return null;
             }
 
             var steps = new List<AgentPlanStep>();
-            if (root.TryGetProperty("steps", out var stepsElement) && stepsElement.ValueKind == JsonValueKind.Array)
+            foreach (var item in stepsElement.EnumerateArray())
             {
-                foreach (var item in stepsElement.EnumerateArray())
+                if (item.ValueKind != JsonValueKind.Object)
                 {
-                    var toolName = ReadString(item, "toolName", "tool_name");
-                    var arguments = ReadString(item, "arguments", "args") ?? string.Empty;
-                    var riskLevel = ParseRiskLevel(ReadString(item, "riskLevel", "risk_level"));
-
-                    if (string.IsNullOrWhiteSpace(toolName))
-                    {
-                        continue;
-                    }
-
-                    if (request.AvailableTools.Count > 0 &&
-                        !request.AvailableTools.Contains(toolName, StringComparer.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-
-                    steps.Add(new AgentPlanStep(toolName.Trim(), arguments.Trim(), riskLevel));
+                    return null;
                 }
+
+                if (!TryReadRequiredString(item, out var toolName, "toolName", "tool_name"))
+                {
+                    return null;
+                }
+
+                if (!TryReadRequiredString(item, out var arguments, "arguments", "args"))
+                {
+                    return null;
+                }
+
+                if (!TryReadRequiredString(item, out var riskLevelText, "riskLevel", "risk_level") ||
+                    !Enum.TryParse<AgentRiskLevel>(riskLevelText, true, out var riskLevel))
+                {
+                    return null;
+                }
+
+                if (request.AvailableTools.Count > 0 &&
+                    !request.AvailableTools.Contains(toolName, StringComparer.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                steps.Add(new AgentPlanStep(toolName.Trim(), arguments.Trim(), riskLevel));
+            }
+
+            if (intent == AgentIntent.Automation && steps.Count == 0)
+            {
+                return null;
             }
 
             return new AgentActionPlan(intent, request.Input, steps);
@@ -201,17 +225,17 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
         return null;
     }
 
-    private static AgentIntent ParseIntent(string? value)
+    private static bool TryReadRequiredString(JsonElement element, out string value, params string[] keys)
     {
-        return Enum.TryParse<AgentIntent>(value, true, out var intent)
-            ? intent
-            : AgentIntent.Automation;
+        value = string.Empty;
+        var raw = ReadString(element, keys);
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return false;
+        }
+
+        value = raw.Trim();
+        return value.Length > 0;
     }
 
-    private static AgentRiskLevel ParseRiskLevel(string? value)
-    {
-        return Enum.TryParse<AgentRiskLevel>(value, true, out var risk)
-            ? risk
-            : AgentRiskLevel.Medium;
-    }
 }

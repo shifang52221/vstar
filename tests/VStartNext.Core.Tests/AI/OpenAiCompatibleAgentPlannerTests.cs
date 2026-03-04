@@ -44,6 +44,22 @@ public class OpenAiCompatibleAgentPlannerTests
         result.Steps[0].Arguments.Should().Be("chrome");
     }
 
+    [Fact]
+    public async Task PlanAsync_WithInvalidSchema_FallsBackInsteadOfAcceptingInvalidPlan()
+    {
+        var planner = new OpenAiCompatibleAgentPlanner(new FakeRouter("""
+            {"intent":"Automation","steps":[{"toolName":"launch_app","arguments":"chrome"}]}
+            """));
+
+        var result = await planner.PlanAsync(new AgentPlannerRequest(
+            "hello there",
+            AgentLanguage.English,
+            ["launch_app"]));
+
+        result.Intent.Should().Be(AgentIntent.Search);
+        result.Steps.Should().BeEmpty();
+    }
+
     private sealed class FakeRouter : IAgentModelRouter
     {
         private readonly string _response;

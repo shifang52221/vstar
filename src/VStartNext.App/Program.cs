@@ -40,7 +40,17 @@ internal static class Program
             executor,
             reflectionService,
             tools.Select(x => x.Name).ToArray());
-        var appAgentGateway = new AppAgentGateway(modelRouter, orchestrator);
+        var appAgentGateway = new AppAgentGateway(
+            modelRouter,
+            orchestrator,
+            confirmHighRiskAction: message =>
+                MessageBox.Show(
+                    $"{message}\n\nContinue?",
+                    "AI Safety Confirmation",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning) == DialogResult.Yes,
+            uiLanguage: System.Globalization.CultureInfo.CurrentUICulture.Name,
+            followUiLanguage: false);
 
         using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
         using var shellWindow = new ShellWindowForm();

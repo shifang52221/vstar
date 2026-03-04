@@ -14,13 +14,35 @@ public sealed class AgentExecutor
     public async Task<AgentRunResult> ExecuteAsync(AgentActionPlan plan, bool autoConfirmHighRisk = false)
     {
         var executions = new List<AgentStepExecution>();
+        if (!autoConfirmHighRisk)
+        {
+            var pendingHighRiskStep = plan.Steps.FirstOrDefault(step =>
+                _policyGuard.Evaluate(step).RequiresUserConfirmation);
+            if (pendingHighRiskStep is not null)
+            {
+                return new AgentRunResult(
+                    false,
+                    $"Confirmation required for {pendingHighRiskStep.ToolName}({pendingHighRiskStep.Arguments})",
+                    executions,
+                    RequiresUserConfirmation: true);
+            }
+        }
 
         foreach (var step in plan.Steps)
         {
             var decision = _policyGuard.Evaluate(step);
+            if (!decision.IsAllowed)
+            {
+                return new AgentRunResult(false, $"Action not allowed: {step.ToolName}", executions);
+            }
+
             if (decision.RequiresUserConfirmation && !autoConfirmHighRisk)
             {
-                return new AgentRunResult(false, "Confirmation required", executions);
+                return new AgentRunResult(
+                    false,
+                    $"Confirmation required for {step.ToolName}({step.Arguments})",
+                    executions,
+                    RequiresUserConfirmation: true);
             }
 
             var toolResult = await _toolRegistry.ExecuteAsync(step.ToolName, step.Arguments);

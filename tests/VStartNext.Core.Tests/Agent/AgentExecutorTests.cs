@@ -29,6 +29,24 @@ public class AgentExecutorTests
         result.Executions.Select(x => x.ToolName).Should().Equal("launch_app", "open_url");
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenHighRiskExistsWithoutAutoConfirm_ReturnsConfirmationRequestBeforeExecution()
+    {
+        var tool = new CountingTool("quick_action");
+        var registry = new AgentToolRegistry([tool]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var plan = new AgentActionPlan(
+            AgentIntent.Automation,
+            "shutdown",
+            [new AgentPlanStep("quick_action", "shutdown", AgentRiskLevel.High)]);
+
+        var result = await executor.ExecuteAsync(plan, autoConfirmHighRisk: false);
+
+        result.Success.Should().BeFalse();
+        result.RequiresUserConfirmation.Should().BeTrue();
+        tool.ExecuteCount.Should().Be(0);
+    }
+
     private sealed class FakeTool : IAgentTool
     {
         public FakeTool(string name)
@@ -40,6 +58,23 @@ public class AgentExecutorTests
 
         public Task<AgentToolResult> ExecuteAsync(string arguments)
         {
+            return Task.FromResult(new AgentToolResult(true, $"ok:{arguments}"));
+        }
+    }
+
+    private sealed class CountingTool : IAgentTool
+    {
+        public CountingTool(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+        public int ExecuteCount { get; private set; }
+
+        public Task<AgentToolResult> ExecuteAsync(string arguments)
+        {
+            ExecuteCount++;
             return Task.FromResult(new AgentToolResult(true, $"ok:{arguments}"));
         }
     }
