@@ -31,7 +31,8 @@ public sealed class AgentOrchestrator : IAgentRunner
         AgentExecutionPreview preview,
         bool autoConfirmHighRisk = true,
         int? maxSteps = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<AgentExecutionUpdate>? progress = null)
     {
         var plan = new AgentActionPlan(
             AgentIntent.Automation,
@@ -41,7 +42,8 @@ public sealed class AgentOrchestrator : IAgentRunner
             plan,
             autoConfirmHighRisk,
             maxSteps,
-            cancellationToken);
+            cancellationToken,
+            progress);
     }
 
     public async Task<AgentRunResult> RunAsync(string input, bool autoConfirmHighRisk = true)

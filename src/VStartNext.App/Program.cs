@@ -46,6 +46,7 @@ internal static class Program
             modelRouter,
             orchestrator,
             selectExecutionMode: preview => ShowAgentExecutionPreview(shellWindow, preview),
+            runWithProgress: (preview, run) => ShowAgentExecutionProgress(shellWindow, preview, run),
             confirmHighRiskAction: message =>
                 MessageBox.Show(
                     $"{message}\n\nContinue?",
@@ -84,5 +85,15 @@ internal static class Program
         using var dialog = new AgentExecutionPreviewForm(preview);
         dialog.ShowDialog(owner);
         return dialog.SelectedMode;
+    }
+
+    private static Task<AgentRunResult> ShowAgentExecutionProgress(
+        IWin32Window owner,
+        AgentExecutionPreview preview,
+        Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> run)
+    {
+        using var dialog = new AgentExecutionProgressForm(preview, run);
+        dialog.ShowDialog(owner);
+        return Task.FromResult(dialog.RunResult ?? new AgentRunResult(false, "Execution canceled", []));
     }
 }

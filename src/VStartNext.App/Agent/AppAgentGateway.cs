@@ -16,6 +16,10 @@ public sealed class AppAgentGateway : IAppAgentGateway
     private readonly IAgentModelRouter? _modelRouter;
     private readonly IAgentRunner? _agentRunner;
     private readonly Func<AgentExecutionPreview, AgentExecutionMode>? _selectExecutionMode;
+    private readonly Func<
+        AgentExecutionPreview,
+        Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>>,
+        Task<AgentRunResult>>? _runWithProgress;
     private readonly Func<string, bool>? _confirmHighRiskAction;
     private readonly IAgentAuditStore? _auditStore;
     private readonly AgentResponseLanguagePolicy _languagePolicy = new();
@@ -26,6 +30,10 @@ public sealed class AppAgentGateway : IAppAgentGateway
         IAgentModelRouter? modelRouter = null,
         IAgentRunner? agentRunner = null,
         Func<AgentExecutionPreview, AgentExecutionMode>? selectExecutionMode = null,
+        Func<
+            AgentExecutionPreview,
+            Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>>,
+            Task<AgentRunResult>>? runWithProgress = null,
         Func<string, bool>? confirmHighRiskAction = null,
         IAgentAuditStore? auditStore = null,
         string uiLanguage = "zh-CN",
@@ -34,6 +42,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
         _modelRouter = modelRouter;
         _agentRunner = agentRunner;
         _selectExecutionMode = selectExecutionMode;
+        _runWithProgress = runWithProgress;
         _confirmHighRiskAction = confirmHighRiskAction;
         _auditStore = auditStore;
         _uiLanguage = uiLanguage;
@@ -99,10 +108,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
             }
 
             int? maxSteps = mode == AgentExecutionMode.ExecuteSingleStep ? 1 : null;
-            var runResult = await _agentRunner.RunAsync(
-                preview,
-                autoConfirmHighRisk: false,
-                maxSteps: maxSteps);
+            var runResult = await RunCoreAsync(preview, maxSteps, autoConfirmHighRisk: false);
             if (runResult.RequiresUserConfirmation)
             {
                 if (_confirmHighRiskAction is null)
@@ -118,10 +124,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
                     return new CommandExecutionResult(false, "Action canceled by user.");
                 }
 
-                runResult = await _agentRunner.RunAsync(
-                    preview,
-                    autoConfirmHighRisk: true,
-                    maxSteps: maxSteps);
+                runResult = await RunCoreAsync(preview, maxSteps, autoConfirmHighRisk: true);
             }
 
             if (!runResult.Success)
@@ -152,6 +155,31 @@ public sealed class AppAgentGateway : IAppAgentGateway
                 $"Agent execution failed: {ex.Message}",
                 []);
             return new CommandExecutionResult(false, $"Agent execution failed: {ex.Message}");
+        }
+
+        async Task<AgentRunResult> RunCoreAsync(
+            AgentExecutionPreview preview,
+            int? maxSteps,
+            bool autoConfirmHighRisk)
+        {
+            if (_runWithProgress is null)
+            {
+                return await _agentRunner.RunAsync(
+                    preview,
+                    autoConfirmHighRisk: autoConfirmHighRisk,
+                    maxSteps: maxSteps,
+                    cancellationToken: CancellationToken.None,
+                    progress: NullProgress.Instance);
+            }
+
+            return await _runWithProgress(
+                preview,
+                (cancellationToken, progress) => _agentRunner.RunAsync(
+                    preview,
+                    autoConfirmHighRisk: autoConfirmHighRisk,
+                    maxSteps: maxSteps,
+                    cancellationToken: cancellationToken,
+                    progress: progress));
         }
     }
 
@@ -212,5 +240,14 @@ public sealed class AppAgentGateway : IAppAgentGateway
             success,
             message,
             steps.ToArray()));
+    }
+
+    private sealed class NullProgress : IProgress<AgentExecutionUpdate>
+    {
+        public static readonly NullProgress Instance = new();
+
+        public void Report(AgentExecutionUpdate value)
+        {
+        }
     }
 }

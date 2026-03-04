@@ -15,7 +15,8 @@ public sealed class AgentExecutor
         AgentActionPlan plan,
         bool autoConfirmHighRisk = false,
         int? maxSteps = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IProgress<AgentExecutionUpdate>? progress = null)
     {
         var executions = new List<AgentStepExecution>();
         if (!autoConfirmHighRisk)
@@ -32,16 +33,26 @@ public sealed class AgentExecutor
             }
         }
 
-        var steps = maxSteps.HasValue
+        var steps = (maxSteps.HasValue
             ? plan.Steps.Take(Math.Max(0, maxSteps.Value))
-            : plan.Steps;
+            : plan.Steps).ToList();
+        var totalSteps = steps.Count;
 
-        foreach (var step in steps)
+        for (var index = 0; index < steps.Count; index++)
         {
+            var step = steps[index];
             if (cancellationToken.IsCancellationRequested)
             {
                 return new AgentRunResult(false, "Execution canceled", executions);
             }
+
+            progress?.Report(new AgentExecutionUpdate(
+                index + 1,
+                totalSteps,
+                step.ToolName,
+                step.Arguments,
+                "Running",
+                string.Empty));
 
             var decision = _policyGuard.Evaluate(step);
             if (!decision.IsAllowed)
@@ -61,6 +72,13 @@ public sealed class AgentExecutor
             var toolResult = await _toolRegistry.ExecuteAsync(step.ToolName, step.Arguments);
             var execution = new AgentStepExecution(step.ToolName, step.Arguments, toolResult.Success, toolResult.Message);
             executions.Add(execution);
+            progress?.Report(new AgentExecutionUpdate(
+                index + 1,
+                totalSteps,
+                step.ToolName,
+                step.Arguments,
+                toolResult.Success ? "Succeeded" : "Failed",
+                toolResult.Message));
 
             if (!toolResult.Success)
             {

@@ -70,6 +70,60 @@ public class AgentExecutorTests
         second.ExecuteCount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_ReportsProgressForEachStep()
+    {
+        var registry = new AgentToolRegistry(
+        [
+            new FakeTool("launch_app"),
+            new FakeTool("open_url")
+        ]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var plan = new AgentActionPlan(
+            AgentIntent.Automation,
+            "open chrome and openai",
+            [
+                new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low),
+                new AgentPlanStep("open_url", "https://openai.com", AgentRiskLevel.Low)
+            ]);
+        var progress = new CollectProgress();
+
+        var result = await executor.ExecuteAsync(
+            plan,
+            autoConfirmHighRisk: true,
+            progress: progress);
+
+        result.Success.Should().BeTrue();
+        progress.Items.Should().HaveCount(4);
+        progress.Items[0].State.Should().Be("Running");
+        progress.Items[1].State.Should().Be("Succeeded");
+        progress.Items[2].State.Should().Be("Running");
+        progress.Items[3].State.Should().Be("Succeeded");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCancellationRequested_ReturnsCanceledWithoutRunningAnyStep()
+    {
+        var tool = new CountingTool("launch_app");
+        var registry = new AgentToolRegistry([tool]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var plan = new AgentActionPlan(
+            AgentIntent.Automation,
+            "open chrome",
+            [new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low)]);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var result = await executor.ExecuteAsync(
+            plan,
+            autoConfirmHighRisk: true,
+            cancellationToken: cts.Token);
+
+        result.Success.Should().BeFalse();
+        result.Message.ToLowerInvariant().Should().Contain("canceled");
+        tool.ExecuteCount.Should().Be(0);
+    }
+
     private sealed class FakeTool : IAgentTool
     {
         public FakeTool(string name)
@@ -99,6 +153,16 @@ public class AgentExecutorTests
         {
             ExecuteCount++;
             return Task.FromResult(new AgentToolResult(true, $"ok:{arguments}"));
+        }
+    }
+
+    private sealed class CollectProgress : IProgress<AgentExecutionUpdate>
+    {
+        public List<AgentExecutionUpdate> Items { get; } = [];
+
+        public void Report(AgentExecutionUpdate value)
+        {
+            Items.Add(value);
         }
     }
 }

@@ -56,6 +56,25 @@ public class AppAgentGatewayTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithProgressRunnerCallback_InvokesProgressFlow()
+    {
+        var runner = new PreviewAwareRunner();
+        var invoked = false;
+        var gateway = new AppAgentGateway(
+            agentRunner: runner,
+            runWithProgress: async (_, run) =>
+            {
+                invoked = true;
+                return await run(CancellationToken.None, new NullProgress());
+            });
+
+        var result = await gateway.ExecuteAsync("open chrome");
+
+        result.Success.Should().BeTrue();
+        invoked.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithRunnerResult_IncludesExecutionTrace()
     {
         var gateway = new AppAgentGateway(agentRunner: new StaticRunner(
@@ -226,7 +245,8 @@ public class AppAgentGatewayTests
             AgentExecutionPreview preview,
             bool autoConfirmHighRisk = true,
             int? maxSteps = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IProgress<AgentExecutionUpdate>? progress = null)
         {
             return Task.FromResult(_result);
         }
@@ -248,7 +268,8 @@ public class AppAgentGatewayTests
             AgentExecutionPreview preview,
             bool autoConfirmHighRisk = true,
             int? maxSteps = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IProgress<AgentExecutionUpdate>? progress = null)
         {
             RunCalls++;
             CallsWithAutoConfirm.Add(autoConfirmHighRisk);
@@ -289,7 +310,8 @@ public class AppAgentGatewayTests
             AgentExecutionPreview preview,
             bool autoConfirmHighRisk = true,
             int? maxSteps = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            IProgress<AgentExecutionUpdate>? progress = null)
         {
             RunCalls++;
             LastMaxSteps = maxSteps;
@@ -313,6 +335,13 @@ public class AppAgentGatewayTests
         public IReadOnlyList<AgentAuditEntry> LoadRecent()
         {
             return Entries;
+        }
+    }
+
+    private sealed class NullProgress : IProgress<AgentExecutionUpdate>
+    {
+        public void Report(AgentExecutionUpdate value)
+        {
         }
     }
 }
