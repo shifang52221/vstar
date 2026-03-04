@@ -26,6 +26,7 @@
 - [ ] Preview panel supports execute-all / single-step / cancel decisions.
 - [ ] Single-step execution mode only runs first planned action.
 - [ ] Agent audit store persists recent execution records.
+- [ ] Execution progress dialog shows model-status stream and tool-step stream with cancel feedback.
 
 ## Stability
 

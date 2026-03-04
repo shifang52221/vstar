@@ -20,4 +20,28 @@ public class AgentExecutionProgressFormTests
         form.TriggerCancelForTesting();
         form.CancelRequested.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task RunForTestingAsync_AppendsModelAndToolStreams()
+    {
+        var preview = new AgentExecutionPreview(
+            "open chrome",
+            [new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low)]);
+        using var form = new AgentExecutionProgressForm(preview, (_, progress) =>
+        {
+            progress.Report(new AgentExecutionUpdate(1, 1, "launch_app", "chrome", "Running", string.Empty));
+            progress.Report(new AgentExecutionUpdate(1, 1, "launch_app", "chrome", "Succeeded", "ok:chrome"));
+            return Task.FromResult(new AgentRunResult(
+                true,
+                "Completed",
+                [new AgentStepExecution("launch_app", "chrome", true, "ok:chrome")]));
+        });
+
+        await form.RunForTestingAsync();
+
+        form.ToolUpdateCountForTesting.Should().Be(2);
+        form.ModelLinesForTesting.Should().Contain(line => line.Contains("started", StringComparison.OrdinalIgnoreCase));
+        form.ModelLinesForTesting.Should().Contain(line => line.Contains("running", StringComparison.OrdinalIgnoreCase));
+        form.ModelLinesForTesting.Should().Contain(line => line.Contains("completed", StringComparison.OrdinalIgnoreCase));
+    }
 }
