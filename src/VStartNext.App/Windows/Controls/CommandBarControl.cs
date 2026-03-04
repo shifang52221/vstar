@@ -23,7 +23,7 @@ public sealed class CommandBarControl : UserControl
             Font = new Font("Segoe UI", 11, FontStyle.Regular),
             ForeColor = ParseColor(theme.TextPrimaryColor, Color.White),
             BackColor = ParseColor(theme.CommandInputColor, Color.FromArgb(22, 23, 30)),
-            PlaceholderText = "Type command or search..."
+            PlaceholderText = "Search apps, files, commands, or ask AI..."
         };
 
         var padding = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };

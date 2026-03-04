@@ -12,8 +12,10 @@ public class NeoPanelCompositionTests
         var view = new NeoPanelView();
 
         view.HasCommandBar.Should().BeTrue();
+        view.HasCategoryRail.Should().BeTrue();
         view.HasLaunchGrid.Should().BeTrue();
         view.HasContextPanel.Should().BeTrue();
+        view.HasStatusStrip.Should().BeTrue();
         view.HasAiSettingsEntry.Should().BeTrue();
     }
 
