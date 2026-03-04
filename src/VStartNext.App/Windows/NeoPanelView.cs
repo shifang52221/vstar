@@ -10,6 +10,7 @@ public sealed class NeoPanelView : UserControl
     private readonly LaunchGridControl _launchGrid;
     private readonly ContextPanelControl _contextPanel;
 
+    public event EventHandler<string>? CommandSubmitted;
     public int ZoneCount => 5;
     public bool HasCommandBar => _commandBar is not null;
     public bool HasLaunchGrid => _launchGrid is not null;
@@ -35,6 +36,7 @@ public sealed class NeoPanelView : UserControl
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
         _commandBar = new CommandBarControl();
+        _commandBar.CommandSubmitted += (_, input) => CommandSubmitted?.Invoke(this, input);
         root.SetColumnSpan(_commandBar, 3);
         root.Controls.Add(_commandBar, 0, 0);
 
@@ -70,5 +72,10 @@ public sealed class NeoPanelView : UserControl
         };
         panel.Controls.Add(label);
         return panel;
+    }
+
+    public void SubmitCommandForTesting(string input)
+    {
+        _commandBar.SubmitForTesting(input);
     }
 }

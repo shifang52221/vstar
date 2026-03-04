@@ -1,18 +1,24 @@
 using VStartNext.Infrastructure.Win32;
+using VStartNext.Core.Launch;
+using VStartNext.Core.Search;
+using VStartNext.Infrastructure.Launch;
 
 namespace VStartNext.App;
 
 public partial class App : IDisposable
 {
     private GlobalHotkeyService? _hotkeyService;
+    private readonly CommandPaletteService _commandPaletteService;
 
-    public App(bool enableSystemTrayIcon = true)
+    public App(bool enableSystemTrayIcon = true, ICommandActionExecutor? commandActionExecutor = null)
     {
         Tray.Initialize(ToggleShellVisibility, createSystemTrayIcon: enableSystemTrayIcon);
+        _commandPaletteService = new CommandPaletteService(commandActionExecutor ?? new LaunchCommandActionExecutor());
     }
 
     public Services.TrayService Tray { get; } = new();
     public ViewModels.ShellViewModel Shell { get; } = new();
+    public CommandExecutionResult? LastCommandResult { get; private set; }
     public event Action<bool>? ShellVisibilityChanged;
 
     public VStartNext.Core.Abstractions.HotkeyBinding StartupHotkey { get; } =
@@ -32,6 +38,13 @@ public partial class App : IDisposable
         return _hotkeyService?.TryHandleWindowMessage(message, wParam) ?? false;
     }
 
+    public async Task<CommandExecutionResult> HandleCommandInputAsync(string input)
+    {
+        var result = await _commandPaletteService.ExecuteAsync(input);
+        LastCommandResult = result;
+        return result;
+    }
+
     public void ToggleShellVisibility()
     {
         Shell.ToggleVisibility();
@@ -43,5 +56,15 @@ public partial class App : IDisposable
         _hotkeyService?.Unregister();
         _hotkeyService = null;
         Tray.Dispose();
+    }
+
+    private sealed class LaunchCommandActionExecutor : ICommandActionExecutor
+    {
+        private readonly LaunchExecutor _launchExecutor = new();
+
+        public async Task ExecuteOpenTargetAsync(string target)
+        {
+            _ = await _launchExecutor.LaunchAsync(new LaunchRequest(target));
+        }
     }
 }

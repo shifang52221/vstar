@@ -17,6 +17,7 @@ internal static class Program
         shellWindow.HideShell();
 
         app.ShellVisibilityChanged += shellWindowController.ApplyVisibility;
+        shellWindow.CommandSubmitted += async (_, input) => await app.HandleCommandInputAsync(input);
         using var window = new HotkeyMessageWindow(app.HandleWindowMessage);
         app.InitializeHotkey(window.Handle);
 

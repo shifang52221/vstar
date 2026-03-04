@@ -6,6 +6,7 @@ namespace VStartNext.App.Windows.Controls;
 public sealed class CommandBarControl : UserControl
 {
     public TextBox InputBox { get; }
+    public event EventHandler<string>? CommandSubmitted;
 
     public CommandBarControl()
     {
@@ -26,5 +27,25 @@ public sealed class CommandBarControl : UserControl
         var padding = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10) };
         padding.Controls.Add(InputBox);
         Controls.Add(padding);
+
+        InputBox.KeyDown += InputBoxOnKeyDown;
+    }
+
+    private void InputBoxOnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyCode != Keys.Enter)
+        {
+            return;
+        }
+
+        e.SuppressKeyPress = true;
+        e.Handled = true;
+        CommandSubmitted?.Invoke(this, InputBox.Text);
+    }
+
+    public void SubmitForTesting(string input)
+    {
+        InputBox.Text = input;
+        CommandSubmitted?.Invoke(this, InputBox.Text);
     }
 }
