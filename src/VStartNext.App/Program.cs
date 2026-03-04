@@ -101,7 +101,13 @@ internal static class Program
             planningTokenStream: cancellationToken =>
                 ReplayTokensAsync(planningTokens, cancellationToken),
             finalizingTokenStream: (result, cancellationToken) =>
-                modelRouter.StreamCompletionAsync(BuildFinalizingPrompt(preview, result), cancellationToken));
+                modelRouter.StreamCompletionAsync(
+                    AgentFinalizingPromptBuilder.Build(
+                        preview,
+                        result,
+                        uiLanguage: System.Globalization.CultureInfo.CurrentUICulture.Name,
+                        followUiLanguage: false),
+                    cancellationToken));
         dialog.ShowDialog(owner);
         return Task.FromResult(dialog.RunResult ?? new AgentRunResult(false, "Execution canceled", []));
     }
@@ -116,18 +122,5 @@ internal static class Program
             yield return token;
             await Task.CompletedTask;
         }
-    }
-
-    private static string BuildFinalizingPrompt(AgentExecutionPreview preview, AgentRunResult result)
-    {
-        var executions = result.Executions.Count == 0
-            ? "No executed steps."
-            : string.Join(
-                "; ",
-                result.Executions.Select((execution, index) =>
-                    $"{index + 1}. {execution.ToolName}({execution.Arguments}) => {execution.Message}"));
-        return
-            "You are an assistant. Output concise final summary text in plain language only. " +
-            $"User input: {preview.Input}. Success: {result.Success}. Message: {result.Message}. Executions: {executions}.";
     }
 }

@@ -29,6 +29,7 @@
 - [ ] Execution progress dialog shows model-status stream and tool-step stream with cancel feedback.
 - [ ] Execution dialog planning/finalizing lanes support cloud token streaming with fallback.
 - [ ] Planning lane replays token stream captured from real planner generation.
+- [ ] Finalizing lane uses language-adaptive structured summary prompt (zh/en/mixed).
 
 ## Stability
 
