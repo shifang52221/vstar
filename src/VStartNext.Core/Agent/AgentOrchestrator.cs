@@ -19,11 +19,34 @@ public sealed class AgentOrchestrator : IAgentRunner
         _availableTools = availableTools ?? [];
     }
 
-    public async Task<AgentRunResult> RunAsync(string input, bool autoConfirmHighRisk = true)
+    public async Task<AgentExecutionPreview> PreviewAsync(string input)
     {
         var request = new AgentPlannerRequest(input, AgentLanguage.Mixed, _availableTools);
         var plan = await _planner.PlanAsync(request);
         var reflectedPlan = await _reflectionService.ReflectAsync(plan);
-        return await _executor.ExecuteAsync(reflectedPlan, autoConfirmHighRisk);
+        return new AgentExecutionPreview(input, reflectedPlan.Steps);
+    }
+
+    public async Task<AgentRunResult> RunAsync(
+        AgentExecutionPreview preview,
+        bool autoConfirmHighRisk = true,
+        int? maxSteps = null,
+        CancellationToken cancellationToken = default)
+    {
+        var plan = new AgentActionPlan(
+            AgentIntent.Automation,
+            preview.Input,
+            preview.Steps);
+        return await _executor.ExecuteAsync(
+            plan,
+            autoConfirmHighRisk,
+            maxSteps,
+            cancellationToken);
+    }
+
+    public async Task<AgentRunResult> RunAsync(string input, bool autoConfirmHighRisk = true)
+    {
+        var preview = await PreviewAsync(input);
+        return await RunAsync(preview, autoConfirmHighRisk);
     }
 }

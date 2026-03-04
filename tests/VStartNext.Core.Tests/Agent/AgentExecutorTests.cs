@@ -47,6 +47,29 @@ public class AgentExecutorTests
         tool.ExecuteCount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithMaxSteps_OnlyRunsRequestedStepCount()
+    {
+        var first = new CountingTool("launch_app");
+        var second = new CountingTool("open_url");
+        var registry = new AgentToolRegistry([first, second]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var plan = new AgentActionPlan(
+            AgentIntent.Automation,
+            "open chrome and openai",
+            [
+                new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low),
+                new AgentPlanStep("open_url", "https://openai.com", AgentRiskLevel.Low)
+            ]);
+
+        var result = await executor.ExecuteAsync(plan, autoConfirmHighRisk: true, maxSteps: 1);
+
+        result.Success.Should().BeTrue();
+        result.Executions.Should().HaveCount(1);
+        first.ExecuteCount.Should().Be(1);
+        second.ExecuteCount.Should().Be(0);
+    }
+
     private sealed class FakeTool : IAgentTool
     {
         public FakeTool(string name)

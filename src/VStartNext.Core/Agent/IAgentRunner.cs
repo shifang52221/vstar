@@ -2,5 +2,11 @@ namespace VStartNext.Core.Agent;
 
 public interface IAgentRunner
 {
-    Task<AgentRunResult> RunAsync(string input, bool autoConfirmHighRisk = true);
+    Task<AgentExecutionPreview> PreviewAsync(string input);
+
+    Task<AgentRunResult> RunAsync(
+        AgentExecutionPreview preview,
+        bool autoConfirmHighRisk = true,
+        int? maxSteps = null,
+        CancellationToken cancellationToken = default);
 }

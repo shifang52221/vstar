@@ -40,20 +40,23 @@ internal static class Program
             executor,
             reflectionService,
             tools.Select(x => x.Name).ToArray());
+        var auditStore = new AgentAuditFileStore();
+        using var shellWindow = new ShellWindowForm();
         var appAgentGateway = new AppAgentGateway(
             modelRouter,
             orchestrator,
+            selectExecutionMode: preview => ShowAgentExecutionPreview(shellWindow, preview),
             confirmHighRiskAction: message =>
                 MessageBox.Show(
                     $"{message}\n\nContinue?",
                     "AI Safety Confirmation",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning) == DialogResult.Yes,
+            auditStore: auditStore,
             uiLanguage: System.Globalization.CultureInfo.CurrentUICulture.Name,
             followUiLanguage: false);
 
         using var app = new App(enableSystemTrayIcon: true, agentGateway: appAgentGateway);
-        using var shellWindow = new ShellWindowForm();
         shellWindow.SetOpenModelSettingsHandler(() => ShowModelSettingsDialog(shellWindow, modelSettingsService));
         var shellWindowController = new ShellWindowController(shellWindow);
         shellWindow.HideShell();
@@ -72,5 +75,14 @@ internal static class Program
     {
         using var dialog = new ModelSettingsForm(modelSettingsService);
         dialog.ShowDialog(owner);
+    }
+
+    private static AgentExecutionMode ShowAgentExecutionPreview(
+        IWin32Window owner,
+        AgentExecutionPreview preview)
+    {
+        using var dialog = new AgentExecutionPreviewForm(preview);
+        dialog.ShowDialog(owner);
+        return dialog.SelectedMode;
     }
 }

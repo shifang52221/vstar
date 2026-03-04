@@ -37,6 +37,22 @@ public class AgentOrchestratorTests
         planner.LastRequest.AvailableTools.Should().Contain("open_url");
     }
 
+    [Fact]
+    public async Task PreviewAsync_ReturnsReflectedPlanSteps()
+    {
+        var planner = new FakePlanner();
+        var reflection = new FakeReflectionService();
+        var registry = new AgentToolRegistry([new FakeTool("launch_app")]);
+        var executor = new AgentExecutor(registry, new AgentPolicyGuard());
+        var orchestrator = new AgentOrchestrator(planner, executor, reflection);
+
+        var preview = await orchestrator.PreviewAsync("open chrome");
+
+        preview.Steps.Should().HaveCount(1);
+        preview.Steps[0].ToolName.Should().Be("launch_app");
+        preview.Steps[0].Arguments.Should().Be("chrome");
+    }
+
     private sealed class FakePlanner : IAgentPlanner
     {
         public Task<AgentActionPlan> PlanAsync(AgentPlannerRequest request)

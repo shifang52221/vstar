@@ -11,7 +11,11 @@ public sealed class AgentExecutor
         _policyGuard = policyGuard;
     }
 
-    public async Task<AgentRunResult> ExecuteAsync(AgentActionPlan plan, bool autoConfirmHighRisk = false)
+    public async Task<AgentRunResult> ExecuteAsync(
+        AgentActionPlan plan,
+        bool autoConfirmHighRisk = false,
+        int? maxSteps = null,
+        CancellationToken cancellationToken = default)
     {
         var executions = new List<AgentStepExecution>();
         if (!autoConfirmHighRisk)
@@ -28,8 +32,17 @@ public sealed class AgentExecutor
             }
         }
 
-        foreach (var step in plan.Steps)
+        var steps = maxSteps.HasValue
+            ? plan.Steps.Take(Math.Max(0, maxSteps.Value))
+            : plan.Steps;
+
+        foreach (var step in steps)
         {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return new AgentRunResult(false, "Execution canceled", executions);
+            }
+
             var decision = _policyGuard.Evaluate(step);
             if (!decision.IsAllowed)
             {

@@ -1,4 +1,4 @@
-using VStartNext.Core.Agent;
+﻿using VStartNext.Core.Agent;
 using VStartNext.Core.Search;
 
 namespace VStartNext.App.Agent;
@@ -15,7 +15,9 @@ public sealed class AppAgentGateway : IAppAgentGateway
     private static readonly string[] Prefixes = ["calc:", "url:", "ws:"];
     private readonly IAgentModelRouter? _modelRouter;
     private readonly IAgentRunner? _agentRunner;
+    private readonly Func<AgentExecutionPreview, AgentExecutionMode>? _selectExecutionMode;
     private readonly Func<string, bool>? _confirmHighRiskAction;
+    private readonly IAgentAuditStore? _auditStore;
     private readonly AgentResponseLanguagePolicy _languagePolicy = new();
     private readonly string _uiLanguage;
     private readonly bool _followUiLanguage;
@@ -23,13 +25,17 @@ public sealed class AppAgentGateway : IAppAgentGateway
     public AppAgentGateway(
         IAgentModelRouter? modelRouter = null,
         IAgentRunner? agentRunner = null,
+        Func<AgentExecutionPreview, AgentExecutionMode>? selectExecutionMode = null,
         Func<string, bool>? confirmHighRiskAction = null,
+        IAgentAuditStore? auditStore = null,
         string uiLanguage = "zh-CN",
         bool followUiLanguage = false)
     {
         _modelRouter = modelRouter;
         _agentRunner = agentRunner;
+        _selectExecutionMode = selectExecutionMode;
         _confirmHighRiskAction = confirmHighRiskAction;
+        _auditStore = auditStore;
         _uiLanguage = uiLanguage;
         _followUiLanguage = followUiLanguage;
     }
@@ -84,32 +90,67 @@ public sealed class AppAgentGateway : IAppAgentGateway
     {
         try
         {
-            var runResult = await _agentRunner!.RunAsync(input, autoConfirmHighRisk: false);
+            var preview = await _agentRunner!.PreviewAsync(input);
+            var mode = _selectExecutionMode?.Invoke(preview) ?? AgentExecutionMode.ExecuteAll;
+            if (mode == AgentExecutionMode.Cancel)
+            {
+                AppendAudit(preview, mode, false, "Action canceled by user.", []);
+                return new CommandExecutionResult(false, "Action canceled by user.");
+            }
+
+            int? maxSteps = mode == AgentExecutionMode.ExecuteSingleStep ? 1 : null;
+            var runResult = await _agentRunner.RunAsync(
+                preview,
+                autoConfirmHighRisk: false,
+                maxSteps: maxSteps);
             if (runResult.RequiresUserConfirmation)
             {
                 if (_confirmHighRiskAction is null)
                 {
+                    AppendAudit(preview, mode, false, runResult.Message, []);
                     return new CommandExecutionResult(false, runResult.Message);
                 }
 
                 var approved = _confirmHighRiskAction(runResult.Message);
                 if (!approved)
                 {
+                    AppendAudit(preview, mode, false, "Action canceled by user.", []);
                     return new CommandExecutionResult(false, "Action canceled by user.");
                 }
 
-                runResult = await _agentRunner.RunAsync(input, autoConfirmHighRisk: true);
+                runResult = await _agentRunner.RunAsync(
+                    preview,
+                    autoConfirmHighRisk: true,
+                    maxSteps: maxSteps);
             }
 
             if (!runResult.Success)
             {
+                AppendAudit(
+                    preview,
+                    mode,
+                    false,
+                    runResult.Message,
+                    runResult.Executions.Select(FormatExecutionLine));
                 return new CommandExecutionResult(false, runResult.Message);
             }
 
+            AppendAudit(
+                preview,
+                mode,
+                true,
+                runResult.Message,
+                runResult.Executions.Select(FormatExecutionLine));
             return new CommandExecutionResult(true, FormatExecutionOutput(runResult, input));
         }
         catch (Exception ex)
         {
+            AppendAudit(
+                new AgentExecutionPreview(input, []),
+                AgentExecutionMode.ExecuteAll,
+                false,
+                $"Agent execution failed: {ex.Message}",
+                []);
             return new CommandExecutionResult(false, $"Agent execution failed: {ex.Message}");
         }
     }
@@ -123,8 +164,13 @@ public sealed class AppAgentGateway : IAppAgentGateway
         }
 
         var trace = runResult.Executions
-            .Select((execution, index) => $"{index + 1}. {execution.ToolName}({execution.Arguments}) => {execution.Message}");
+            .Select((execution, index) => $"{index + 1}. {FormatExecutionLine(execution)}");
         return $"{ResolveHeader(runResult.Success, language)}\n{string.Join("\n", trace)}";
+    }
+
+    private static string FormatExecutionLine(AgentStepExecution execution)
+    {
+        return $"{execution.ToolName}({execution.Arguments}) => {execution.Message}";
     }
 
     private static string ResolveHeader(bool success, AgentLanguage language)
@@ -133,17 +179,38 @@ public sealed class AppAgentGateway : IAppAgentGateway
         {
             return language switch
             {
-                AgentLanguage.Chinese => "已完成",
+                AgentLanguage.Chinese => "\u5df2\u5b8c\u6210",
                 AgentLanguage.English => "Completed",
-                _ => "Completed / 已完成"
+                _ => "Completed / \u5df2\u5b8c\u6210"
             };
         }
 
         return language switch
         {
-            AgentLanguage.Chinese => "执行失败",
+            AgentLanguage.Chinese => "\u6267\u884c\u5931\u8d25",
             AgentLanguage.English => "Failed",
-            _ => "Failed / 执行失败"
+            _ => "Failed / \u6267\u884c\u5931\u8d25"
         };
+    }
+
+    private void AppendAudit(
+        AgentExecutionPreview preview,
+        AgentExecutionMode mode,
+        bool success,
+        string message,
+        IEnumerable<string> steps)
+    {
+        if (_auditStore is null)
+        {
+            return;
+        }
+
+        _auditStore.Append(new AgentAuditEntry(
+            DateTimeOffset.Now,
+            preview.Input,
+            mode,
+            success,
+            message,
+            steps.ToArray()));
     }
 }
