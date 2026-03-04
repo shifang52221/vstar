@@ -8,7 +8,7 @@ public class AppTrayIntegrationTests
     [Fact]
     public void TrayToggle_ChangesShellVisibility()
     {
-        var app = new VStartNext.App.App();
+        var app = new VStartNext.App.App(enableSystemTrayIcon: false);
         app.Shell.IsVisible.Should().BeFalse();
 
         app.Tray.RequestToggle();

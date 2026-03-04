@@ -2,9 +2,9 @@ namespace VStartNext.App;
 
 public partial class App
 {
-    public App()
+    public App(bool enableSystemTrayIcon = true)
     {
-        Tray.Initialize(() => Shell.ToggleVisibility());
+        Tray.Initialize(() => Shell.ToggleVisibility(), createSystemTrayIcon: enableSystemTrayIcon);
     }
 
     public Services.TrayService Tray { get; } = new();
