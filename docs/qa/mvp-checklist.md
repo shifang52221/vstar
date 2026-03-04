@@ -5,6 +5,7 @@
 - [ ] Alt+Space toggles launcher visibility.
 - [ ] Shell host mode routing defaults to WinForms and supports dedicated WinUI preview host flag.
 - [ ] WinUI preview host forwards command submission and AI settings callback.
+- [ ] WinUI preview form applies theme tokens and title-bar interaction focuses command input.
 - [ ] Search returns browser apps for `ch` query.
 - [ ] Launching a missing target shows readable error.
 - [ ] Pinned items rank above non-pinned in catalog list.

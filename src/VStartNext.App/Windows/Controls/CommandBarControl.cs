@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows.Forms;
+using VStartNext.App.Styles;
 
 namespace VStartNext.App.Windows.Controls;
 
@@ -8,19 +9,20 @@ public sealed class CommandBarControl : UserControl
     public TextBox InputBox { get; }
     public event EventHandler<string>? CommandSubmitted;
 
-    public CommandBarControl()
+    public CommandBarControl(NeoThemeTokens? tokens = null)
     {
+        var theme = tokens ?? NeoThemeTokens.Default();
         Dock = DockStyle.Fill;
         Margin = new Padding(6);
-        BackColor = Color.FromArgb(28, 30, 38);
+        BackColor = ParseColor(theme.CommandBarColor, Color.FromArgb(28, 30, 38));
 
         InputBox = new TextBox
         {
             Dock = DockStyle.Fill,
             BorderStyle = BorderStyle.FixedSingle,
             Font = new Font("Segoe UI", 11, FontStyle.Regular),
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(22, 23, 30),
+            ForeColor = ParseColor(theme.TextPrimaryColor, Color.White),
+            BackColor = ParseColor(theme.CommandInputColor, Color.FromArgb(22, 23, 30)),
             PlaceholderText = "Type command or search..."
         };
 
@@ -47,5 +49,27 @@ public sealed class CommandBarControl : UserControl
     {
         InputBox.Text = input;
         CommandSubmitted?.Invoke(this, InputBox.Text);
+    }
+
+    public void FocusInput()
+    {
+        InputBox.Focus();
+    }
+
+    private static Color ParseColor(string value, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        try
+        {
+            return ColorTranslator.FromHtml(value);
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 }

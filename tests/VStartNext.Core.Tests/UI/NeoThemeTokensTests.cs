@@ -13,5 +13,7 @@ public class NeoThemeTokensTests
 
         tokens.RadiusLarge.Should().Be(16);
         tokens.SpacingLg.Should().Be(24);
+        tokens.HeaderColor.Should().Be("#121A26");
+        tokens.TextPrimaryColor.Should().Be("#EAF0F8");
     }
 }
