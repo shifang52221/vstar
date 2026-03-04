@@ -2,7 +2,7 @@ using System.Net.Http.Headers;
 
 namespace VStartNext.Infrastructure.AI;
 
-public sealed class ModelConnectionTester
+public sealed class ModelConnectionTester : IModelConnectionTester
 {
     private readonly HttpClient _httpClient;
 
