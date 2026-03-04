@@ -1,5 +1,11 @@
 $ErrorActionPreference = "Stop"
 
+dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigModelSettingsTests|FullyQualifiedName~ModelConfigParseTests" -v minimal
+if ($LASTEXITCODE -ne 0) { throw "Model config tests failed" }
+
+dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~DpapiSecretProtectorTests|FullyQualifiedName~ModelConnectionTesterTests" -v minimal
+if ($LASTEXITCODE -ne 0) { throw "Model security/connection tests failed" }
+
 dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal
 if ($LASTEXITCODE -ne 0) { throw "Agent tests failed" }
 

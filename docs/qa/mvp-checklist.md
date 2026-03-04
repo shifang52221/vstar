@@ -13,6 +13,8 @@
 - [ ] Natural-language command routes through app agent gateway.
 - [ ] Agent orchestrator invokes reflection before execution.
 - [ ] Agent executor executes multi-step plans in declared order.
+- [ ] User can define provider/base-url/model routes in config.
+- [ ] String enum provider values deserialize without recovery fallback.
 
 ## Stability
 
@@ -23,9 +25,13 @@
 - [ ] High-risk agent actions require confirmation.
 - [ ] Bilingual response policy resolves by input language by default.
 - [ ] Agent memory profile stores language and tool usage frequency.
+- [ ] API key encryption/decryption round-trip works via DPAPI.
+- [ ] Provider connection test returns structured status on success/failure.
 
 ## Release Gate
 
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigModelSettingsTests|FullyQualifiedName~ModelConfigParseTests" -v minimal`
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~DpapiSecretProtectorTests|FullyQualifiedName~ModelConnectionTesterTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentRoutingTests|FullyQualifiedName~NeoPanelInteractionFlowTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter NeoPanel -v minimal`

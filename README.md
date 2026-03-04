@@ -31,7 +31,15 @@ This repository now also contains a new Windows launcher prototype at `src/VStar
 - App-level natural-language routing through an agent gateway.
 - Memory profile baseline for language and tool usage frequency.
 
+### User-Defined Model Config (Wave 3.1)
+- Config schema supports provider, base URL, model routes, and runtime parameters.
+- API key is stored as encrypted ciphertext (Windows DPAPI).
+- OpenAI-compatible provider connection test capability (`GET /models`).
+- Model config parser supports string enum provider values for human-editable configs.
+
 ### Quick Verification
+- dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigModelSettingsTests|FullyQualifiedName~ModelConfigParseTests" -v minimal
+- dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~DpapiSecretProtectorTests|FullyQualifiedName~ModelConnectionTesterTests" -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentRoutingTests|FullyQualifiedName~NeoPanelInteractionFlowTests" -v minimal
 - dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter NeoPanel -v minimal
