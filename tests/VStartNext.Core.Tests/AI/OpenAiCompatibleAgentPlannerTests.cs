@@ -61,6 +61,29 @@ public class OpenAiCompatibleAgentPlannerTests
         result.Steps.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task PlanAsync_WithPlanningProgress_StreamsPlannerTokens()
+    {
+        var router = new StreamingRouter(
+            [
+                "{\"intent\":\"Automation\",\"steps\":[",
+                "{\"toolName\":\"launch_app\",\"arguments\":\"chrome\",\"riskLevel\":\"Low\"}",
+                "]}"
+            ]);
+        var planner = new OpenAiCompatibleAgentPlanner(router);
+        var progress = new CollectTextProgress();
+
+        var result = await planner.PlanAsync(
+            new AgentPlannerRequest("open chrome", AgentLanguage.English, ["launch_app"]),
+            planningProgress: progress);
+
+        result.Intent.Should().Be(AgentIntent.Automation);
+        result.Steps.Should().HaveCount(1);
+        progress.Items.Should().NotBeEmpty();
+        progress.Items.Should().Contain(token => token.Contains("toolName", StringComparison.Ordinal));
+        router.StreamCalls.Should().Be(1);
+    }
+
     private sealed class FakeRouter : IAgentModelRouter
     {
         private readonly string _response;
@@ -79,6 +102,43 @@ public class OpenAiCompatibleAgentPlannerTests
         {
             yield return _response;
             await Task.Yield();
+        }
+    }
+
+    private sealed class StreamingRouter : IAgentModelRouter
+    {
+        private readonly IReadOnlyList<string> _tokens;
+
+        public StreamingRouter(IReadOnlyList<string> tokens)
+        {
+            _tokens = tokens;
+        }
+
+        public int StreamCalls { get; private set; }
+
+        public Task<string> CompleteAsync(string prompt)
+        {
+            return Task.FromResult(string.Concat(_tokens));
+        }
+
+        public async IAsyncEnumerable<string> StreamCompletionAsync(string prompt, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            StreamCalls++;
+            foreach (var token in _tokens)
+            {
+                yield return token;
+                await Task.CompletedTask;
+            }
+        }
+    }
+
+    private sealed class CollectTextProgress : IProgress<string>
+    {
+        public List<string> Items { get; } = [];
+
+        public void Report(string value)
+        {
+            Items.Add(value);
         }
     }
 }

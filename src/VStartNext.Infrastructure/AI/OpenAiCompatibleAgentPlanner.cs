@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text;
 using VStartNext.Core.Agent;
 
 namespace VStartNext.Infrastructure.AI;
@@ -13,13 +14,64 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
         _modelRouter = modelRouter;
     }
 
-    public async Task<AgentActionPlan> PlanAsync(AgentPlannerRequest request)
+    public async Task<AgentActionPlan> PlanAsync(
+        AgentPlannerRequest request,
+        IProgress<string>? planningProgress = null,
+        CancellationToken cancellationToken = default)
     {
         var prompt = BuildPrompt(request);
-        var completion = await _modelRouter.CompleteAsync(prompt);
+        string completion;
+        if (planningProgress is null)
+        {
+            completion = await _modelRouter.CompleteAsync(prompt);
+        }
+        else
+        {
+            completion = await CompleteWithStreamingAsync(
+                prompt,
+                planningProgress,
+                cancellationToken);
+        }
 
         var plan = TryParsePlan(completion, request);
         return plan ?? BuildFallbackPlan(request);
+    }
+
+    private async Task<string> CompleteWithStreamingAsync(
+        string prompt,
+        IProgress<string> planningProgress,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var completionBuilder = new StringBuilder();
+            await foreach (var token in _modelRouter.StreamCompletionAsync(prompt, cancellationToken)
+                               .WithCancellation(cancellationToken))
+            {
+                if (string.IsNullOrEmpty(token))
+                {
+                    continue;
+                }
+
+                planningProgress.Report(token);
+                completionBuilder.Append(token);
+            }
+
+            if (completionBuilder.Length > 0)
+            {
+                return completionBuilder.ToString();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // fallback to non-stream completion below
+        }
+
+        return await _modelRouter.CompleteAsync(prompt);
     }
 
     private static string BuildPrompt(AgentPlannerRequest request)

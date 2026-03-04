@@ -46,7 +46,8 @@ internal static class Program
             modelRouter,
             orchestrator,
             selectExecutionMode: preview => ShowAgentExecutionPreview(shellWindow, preview),
-            runWithProgress: (preview, run) => ShowAgentExecutionProgress(shellWindow, modelRouter, preview, run),
+            runWithProgress: (preview, planningTokens, run) =>
+                ShowAgentExecutionProgress(shellWindow, modelRouter, preview, planningTokens, run),
             confirmHighRiskAction: message =>
                 MessageBox.Show(
                     $"{message}\n\nContinue?",
@@ -91,33 +92,30 @@ internal static class Program
         IWin32Window owner,
         IAgentModelRouter modelRouter,
         AgentExecutionPreview preview,
+        IReadOnlyList<string> planningTokens,
         Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>> run)
     {
         using var dialog = new AgentExecutionProgressForm(
             preview,
             run,
             planningTokenStream: cancellationToken =>
-                modelRouter.StreamCompletionAsync(BuildPlanningPrompt(preview), cancellationToken),
+                ReplayTokensAsync(planningTokens, cancellationToken),
             finalizingTokenStream: (result, cancellationToken) =>
                 modelRouter.StreamCompletionAsync(BuildFinalizingPrompt(preview, result), cancellationToken));
         dialog.ShowDialog(owner);
         return Task.FromResult(dialog.RunResult ?? new AgentRunResult(false, "Execution canceled", []));
     }
 
-    private static string BuildPlanningPrompt(AgentExecutionPreview preview)
+    private static async IAsyncEnumerable<string> ReplayTokensAsync(
+        IReadOnlyList<string> tokens,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        if (preview.Steps.Count == 0)
+        foreach (var token in tokens)
         {
-            return
-                "You are an assistant. Output only concise planning text for execution preview. " +
-                $"User input: {preview.Input}. No executable steps were detected.";
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return token;
+            await Task.CompletedTask;
         }
-
-        var steps = preview.Steps
-            .Select((step, index) => $"{index + 1}. {step.ToolName}({step.Arguments}) [{step.RiskLevel}]");
-        return
-            "You are an assistant. Output concise planning status text in plain language only. " +
-            $"User input: {preview.Input}. Planned steps: {string.Join("; ", steps)}.";
     }
 
     private static string BuildFinalizingPrompt(AgentExecutionPreview preview, AgentRunResult result)

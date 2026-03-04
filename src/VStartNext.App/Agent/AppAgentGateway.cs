@@ -18,6 +18,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
     private readonly Func<AgentExecutionPreview, AgentExecutionMode>? _selectExecutionMode;
     private readonly Func<
         AgentExecutionPreview,
+        IReadOnlyList<string>,
         Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>>,
         Task<AgentRunResult>>? _runWithProgress;
     private readonly Func<string, bool>? _confirmHighRiskAction;
@@ -32,6 +33,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
         Func<AgentExecutionPreview, AgentExecutionMode>? selectExecutionMode = null,
         Func<
             AgentExecutionPreview,
+            IReadOnlyList<string>,
             Func<CancellationToken, IProgress<AgentExecutionUpdate>, Task<AgentRunResult>>,
             Task<AgentRunResult>>? runWithProgress = null,
         Func<string, bool>? confirmHighRiskAction = null,
@@ -97,9 +99,13 @@ public sealed class AppAgentGateway : IAppAgentGateway
 
     private async Task<CommandExecutionResult> ExecuteWithRunnerAsync(string input)
     {
+        var planningTokenCollector = new CollectPlanningTokensProgress();
         try
         {
-            var preview = await _agentRunner!.PreviewAsync(input);
+            var preview = await _agentRunner!.PreviewAsync(
+                input,
+                planningProgress: planningTokenCollector,
+                cancellationToken: CancellationToken.None);
             var mode = _selectExecutionMode?.Invoke(preview) ?? AgentExecutionMode.ExecuteAll;
             if (mode == AgentExecutionMode.Cancel)
             {
@@ -174,6 +180,7 @@ public sealed class AppAgentGateway : IAppAgentGateway
 
             return await _runWithProgress(
                 preview,
+                planningTokenCollector.Tokens,
                 (cancellationToken, progress) => _agentRunner.RunAsync(
                     preview,
                     autoConfirmHighRisk: autoConfirmHighRisk,
@@ -248,6 +255,23 @@ public sealed class AppAgentGateway : IAppAgentGateway
 
         public void Report(AgentExecutionUpdate value)
         {
+        }
+    }
+
+    private sealed class CollectPlanningTokensProgress : IProgress<string>
+    {
+        private readonly List<string> _tokens = [];
+
+        public IReadOnlyList<string> Tokens => _tokens;
+
+        public void Report(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+
+            _tokens.Add(value);
         }
     }
 }

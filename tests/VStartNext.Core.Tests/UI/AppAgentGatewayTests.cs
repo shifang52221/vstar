@@ -61,11 +61,13 @@ public class AppAgentGatewayTests
     {
         var runner = new PreviewAwareRunner();
         var invoked = false;
+        IReadOnlyList<string>? capturedPlanningTokens = null;
         var gateway = new AppAgentGateway(
             agentRunner: runner,
-            runWithProgress: async (_, run) =>
+            runWithProgress: async (_, planningTokens, run) =>
             {
                 invoked = true;
+                capturedPlanningTokens = planningTokens;
                 return await run(CancellationToken.None, new NullProgress());
             });
 
@@ -73,6 +75,8 @@ public class AppAgentGatewayTests
 
         result.Success.Should().BeTrue();
         invoked.Should().BeTrue();
+        capturedPlanningTokens.Should().NotBeNull();
+        capturedPlanningTokens.Should().Contain(token => token.Contains("planner", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -252,8 +256,12 @@ public class AppAgentGatewayTests
             _result = result;
         }
 
-        public Task<AgentExecutionPreview> PreviewAsync(string input)
+        public Task<AgentExecutionPreview> PreviewAsync(
+            string input,
+            IProgress<string>? planningProgress = null,
+            CancellationToken cancellationToken = default)
         {
+            planningProgress?.Report("planner token from static runner");
             return Task.FromResult(new AgentExecutionPreview(
                 input,
                 [new AgentPlanStep("launch_app", "chrome", AgentRiskLevel.Low)]));
@@ -275,8 +283,12 @@ public class AppAgentGatewayTests
         public int RunCalls { get; private set; }
         public List<bool> CallsWithAutoConfirm { get; } = [];
 
-        public Task<AgentExecutionPreview> PreviewAsync(string input)
+        public Task<AgentExecutionPreview> PreviewAsync(
+            string input,
+            IProgress<string>? planningProgress = null,
+            CancellationToken cancellationToken = default)
         {
+            planningProgress?.Report("planner token from confirming runner");
             return Task.FromResult(new AgentExecutionPreview(
                 input,
                 [new AgentPlanStep("quick_action", "shutdown", AgentRiskLevel.High)]));
@@ -313,9 +325,13 @@ public class AppAgentGatewayTests
         public int RunCalls { get; private set; }
         public int? LastMaxSteps { get; private set; }
 
-        public Task<AgentExecutionPreview> PreviewAsync(string input)
+        public Task<AgentExecutionPreview> PreviewAsync(
+            string input,
+            IProgress<string>? planningProgress = null,
+            CancellationToken cancellationToken = default)
         {
             PreviewCalls++;
+            planningProgress?.Report("planner token from preview-aware runner");
             return Task.FromResult(new AgentExecutionPreview(
                 input,
                 [

@@ -2,7 +2,10 @@ namespace VStartNext.Core.Agent;
 
 public interface IAgentRunner
 {
-    Task<AgentExecutionPreview> PreviewAsync(string input);
+    Task<AgentExecutionPreview> PreviewAsync(
+        string input,
+        IProgress<string>? planningProgress = null,
+        CancellationToken cancellationToken = default);
 
     Task<AgentRunResult> RunAsync(
         AgentExecutionPreview preview,

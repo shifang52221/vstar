@@ -19,10 +19,13 @@ public sealed class AgentOrchestrator : IAgentRunner
         _availableTools = availableTools ?? [];
     }
 
-    public async Task<AgentExecutionPreview> PreviewAsync(string input)
+    public async Task<AgentExecutionPreview> PreviewAsync(
+        string input,
+        IProgress<string>? planningProgress = null,
+        CancellationToken cancellationToken = default)
     {
         var request = new AgentPlannerRequest(input, AgentLanguage.Mixed, _availableTools);
-        var plan = await _planner.PlanAsync(request);
+        var plan = await _planner.PlanAsync(request, planningProgress, cancellationToken);
         var reflectedPlan = await _reflectionService.ReflectAsync(plan);
         return new AgentExecutionPreview(input, reflectedPlan.Steps);
     }

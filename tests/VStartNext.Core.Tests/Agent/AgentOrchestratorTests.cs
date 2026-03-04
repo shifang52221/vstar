@@ -55,8 +55,12 @@ public class AgentOrchestratorTests
 
     private sealed class FakePlanner : IAgentPlanner
     {
-        public Task<AgentActionPlan> PlanAsync(AgentPlannerRequest request)
+        public Task<AgentActionPlan> PlanAsync(
+            AgentPlannerRequest request,
+            IProgress<string>? planningProgress = null,
+            CancellationToken cancellationToken = default)
         {
+            planningProgress?.Report("planner-token");
             var plan = new AgentActionPlan(
                 AgentIntent.Automation,
                 request.Input,
@@ -69,7 +73,10 @@ public class AgentOrchestratorTests
     {
         public AgentPlannerRequest? LastRequest { get; private set; }
 
-        public Task<AgentActionPlan> PlanAsync(AgentPlannerRequest request)
+        public Task<AgentActionPlan> PlanAsync(
+            AgentPlannerRequest request,
+            IProgress<string>? planningProgress = null,
+            CancellationToken cancellationToken = default)
         {
             LastRequest = request;
             var plan = new AgentActionPlan(
