@@ -18,6 +18,9 @@
 - [ ] Context panel exposes `AI Settings` entry.
 - [ ] Shell open flow can trigger model settings dialog callback.
 - [ ] App agent gateway uses model router output for NL commands.
+- [ ] Agent gateway can execute orchestrator tool-chain output.
+- [ ] Planner can parse model JSON response into executable tool steps.
+- [ ] Runtime launcher tools can execute app/url/path actions safely.
 
 ## Stability
 
@@ -37,7 +40,7 @@
 
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigFileStoreTests|FullyQualifiedName~ModelSettingsServiceTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~ContextPanelControlTests|FullyQualifiedName~ShellWindowModelSettingsTests" -v minimal`
-- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentGatewayTests|FullyQualifiedName~OpenAiCompatibleAgentModelRouterTests" -v minimal`
+- [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppAgentGatewayTests|FullyQualifiedName~OpenAiCompatibleAgentModelRouterTests|FullyQualifiedName~OpenAiCompatibleAgentPlannerTests|FullyQualifiedName~LauncherAgentToolTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~AppConfigModelSettingsTests|FullyQualifiedName~ModelConfigParseTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter "FullyQualifiedName~DpapiSecretProtectorTests|FullyQualifiedName~ModelConnectionTesterTests" -v minimal`
 - [ ] `dotnet test tests/VStartNext.Core.Tests/VStartNext.Core.Tests.csproj --filter Agent -v minimal`
