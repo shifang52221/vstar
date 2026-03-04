@@ -29,7 +29,8 @@ internal static class Program
         {
             new LaunchAppAgentTool(),
             new OpenUrlAgentTool(),
-            new OpenPathAgentTool()
+            new OpenPathAgentTool(),
+            new QuickActionAgentTool()
         };
         var toolRegistry = new AgentToolRegistry(tools);
         var planner = new OpenAiCompatibleAgentPlanner(modelRouter);

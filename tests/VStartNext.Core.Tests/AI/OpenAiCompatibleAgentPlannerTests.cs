@@ -84,6 +84,23 @@ public class OpenAiCompatibleAgentPlannerTests
         router.StreamCalls.Should().Be(1);
     }
 
+    [Fact]
+    public async Task PlanAsync_WithShutdownInput_AndQuickActionTool_FallsBackToQuickActionStep()
+    {
+        var planner = new OpenAiCompatibleAgentPlanner(new FakeRouter("not-json"));
+
+        var result = await planner.PlanAsync(new AgentPlannerRequest(
+            "shutdown now",
+            AgentLanguage.English,
+            ["quick_action"]));
+
+        result.Intent.Should().Be(AgentIntent.Automation);
+        result.Steps.Should().HaveCount(1);
+        result.Steps[0].ToolName.Should().Be("quick_action");
+        result.Steps[0].Arguments.Should().Be("shutdown");
+        result.Steps[0].RiskLevel.Should().Be(AgentRiskLevel.High);
+    }
+
     private sealed class FakeRouter : IAgentModelRouter
     {
         private readonly string _response;

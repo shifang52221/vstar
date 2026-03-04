@@ -181,8 +181,14 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
             request.AvailableTools.Contains("open_url", StringComparer.OrdinalIgnoreCase);
         var canLaunchApp = request.AvailableTools.Count == 0 ||
             request.AvailableTools.Contains("launch_app", StringComparer.OrdinalIgnoreCase);
+        var canQuickAction = request.AvailableTools.Count == 0 ||
+            request.AvailableTools.Contains("quick_action", StringComparer.OrdinalIgnoreCase);
 
-        if (canOpenUrl && TryExtractUrl(input, out var url))
+        if (canQuickAction && TryExtractQuickAction(input, out var action, out var riskLevel))
+        {
+            steps.Add(new AgentPlanStep("quick_action", action, riskLevel));
+        }
+        else if (canOpenUrl && TryExtractUrl(input, out var url))
         {
             steps.Add(new AgentPlanStep("open_url", url, AgentRiskLevel.Low));
         }
@@ -193,6 +199,52 @@ public sealed class OpenAiCompatibleAgentPlanner : IAgentPlanner
 
         var intent = steps.Count == 0 ? AgentIntent.Search : AgentIntent.Automation;
         return new AgentActionPlan(intent, request.Input, steps);
+    }
+
+    private static bool TryExtractQuickAction(
+        string input,
+        out string action,
+        out AgentRiskLevel riskLevel)
+    {
+        var normalized = input.Trim().ToLowerInvariant();
+
+        if (ContainsAny(normalized, "shutdown", "power off", "turn off", "关机"))
+        {
+            action = "shutdown";
+            riskLevel = AgentRiskLevel.High;
+            return true;
+        }
+
+        if (ContainsAny(normalized, "restart", "reboot", "重启"))
+        {
+            action = "restart";
+            riskLevel = AgentRiskLevel.High;
+            return true;
+        }
+
+        if (ContainsAny(normalized, "lock", "lock screen", "锁屏"))
+        {
+            action = "lock";
+            riskLevel = AgentRiskLevel.Medium;
+            return true;
+        }
+
+        if (ContainsAny(normalized, "settings", "open settings", "设置"))
+        {
+            action = "open_settings";
+            riskLevel = AgentRiskLevel.Low;
+            return true;
+        }
+
+        action = string.Empty;
+        riskLevel = AgentRiskLevel.Low;
+        return false;
+    }
+
+    private static bool ContainsAny(string input, params string[] candidates)
+    {
+        return candidates.Any(candidate =>
+            input.Contains(candidate, StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool TryExtractUrl(string input, out string url)
