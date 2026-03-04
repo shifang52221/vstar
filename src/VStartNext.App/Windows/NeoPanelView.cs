@@ -11,10 +11,12 @@ public sealed class NeoPanelView : UserControl
     private readonly ContextPanelControl _contextPanel;
 
     public event EventHandler<string>? CommandSubmitted;
+    public event EventHandler? AiSettingsRequested;
     public int ZoneCount => 5;
     public bool HasCommandBar => _commandBar is not null;
     public bool HasLaunchGrid => _launchGrid is not null;
     public bool HasContextPanel => _contextPanel is not null;
+    public bool HasAiSettingsEntry => _contextPanel is not null;
 
     public NeoPanelView()
     {
@@ -44,6 +46,7 @@ public sealed class NeoPanelView : UserControl
         _launchGrid = new LaunchGridControl();
         root.Controls.Add(_launchGrid, 1, 1);
         _contextPanel = new ContextPanelControl();
+        _contextPanel.AiSettingsRequested += (_, _) => AiSettingsRequested?.Invoke(this, EventArgs.Empty);
         root.Controls.Add(_contextPanel, 2, 1);
 
         var bottom = ZonePanel("STATUS");
@@ -77,5 +80,10 @@ public sealed class NeoPanelView : UserControl
     public void SubmitCommandForTesting(string input)
     {
         _commandBar.SubmitForTesting(input);
+    }
+
+    public void TriggerAiSettingsForTesting()
+    {
+        _contextPanel.TriggerAiSettingsForTesting();
     }
 }

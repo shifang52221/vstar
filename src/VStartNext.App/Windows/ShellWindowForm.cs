@@ -8,6 +8,7 @@ public sealed class ShellWindowForm : Form, IShellWindow
     private readonly NeoPanelView _neoPanel;
 
     public event EventHandler<string>? CommandSubmitted;
+    public event EventHandler? AiSettingsRequested;
 
     public ShellWindowForm()
     {
@@ -21,6 +22,7 @@ public sealed class ShellWindowForm : Form, IShellWindow
 
         _neoPanel = new NeoPanelView();
         _neoPanel.CommandSubmitted += (_, input) => CommandSubmitted?.Invoke(this, input);
+        _neoPanel.AiSettingsRequested += (_, _) => AiSettingsRequested?.Invoke(this, EventArgs.Empty);
         Controls.Add(_neoPanel);
     }
 
@@ -42,5 +44,10 @@ public sealed class ShellWindowForm : Form, IShellWindow
     public void SubmitCommandForTesting(string input)
     {
         _neoPanel.SubmitCommandForTesting(input);
+    }
+
+    public void TriggerAiSettingsForTesting()
+    {
+        _neoPanel.TriggerAiSettingsForTesting();
     }
 }
