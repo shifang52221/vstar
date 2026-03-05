@@ -6,6 +6,19 @@ namespace VStartNext.Core.Tests.UI;
 public class VstartClassicPanelViewTests
 {
     [Fact]
+    public void Constructor_BuildsPrimaryLayoutZones()
+    {
+        using var view = new VstartClassicPanelView();
+
+        view.HasHeroZoneForTesting.Should().BeTrue();
+        view.HasCategoryZoneForTesting.Should().BeTrue();
+        view.HasAppGridZoneForTesting.Should().BeTrue();
+        view.HasToolZoneForTesting.Should().BeTrue();
+        view.HasSearchZoneForTesting.Should().BeTrue();
+        view.HasBottomDockZoneForTesting.Should().BeTrue();
+    }
+
+    [Fact]
     public void Constructor_UsesCollectedApps_WhenCatalogProvided()
     {
         var catalog = new FakeCatalog(
@@ -19,6 +32,7 @@ public class VstartClassicPanelViewTests
         view.CollectedAppCountForTesting.Should().Be(2);
         view.CollectedAppNamesForTesting.Should().Contain("Chrome");
         view.CollectedAppNamesForTesting.Should().Contain("Edge");
+        view.AppSlotCountForTesting.Should().BeGreaterThanOrEqualTo(8);
     }
 
     private sealed class FakeCatalog : IAppCatalog
