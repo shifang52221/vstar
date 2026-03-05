@@ -12,7 +12,7 @@ public interface IAppAgentGateway
 
 public sealed class AppAgentGateway : IAppAgentGateway
 {
-    private static readonly string[] Prefixes = ["calc:", "url:", "ws:"];
+    private static readonly string[] Prefixes = ["calc:", "url:", "ws:", "run:"];
     private readonly IAgentModelRouter? _modelRouter;
     private readonly IAgentRunner? _agentRunner;
     private readonly Func<AgentExecutionPreview, AgentExecutionMode>? _selectExecutionMode;

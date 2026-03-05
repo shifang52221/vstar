@@ -6,6 +6,11 @@ public sealed class CommandPrefixParser
     {
         var value = input.Trim();
 
+        if (TryReadPrefix(value, "run:", out var runPayload))
+        {
+            return new ParsedPrefix(CommandPrefixType.Run, runPayload);
+        }
+
         if (TryReadPrefix(value, "ws:", out var wsPayload))
         {
             return new ParsedPrefix(CommandPrefixType.Ws, wsPayload);

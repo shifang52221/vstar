@@ -25,6 +25,12 @@ public sealed class CommandPaletteService
             return new CommandExecutionResult(true, value);
         }
 
+        if (parsed.Type == CommandPrefixType.Run)
+        {
+            await _executor.ExecuteOpenTargetAsync(parsed.Payload);
+            return new CommandExecutionResult(true, parsed.Payload);
+        }
+
         if (parsed.Type == CommandPrefixType.Url)
         {
             await _executor.ExecuteOpenTargetAsync(parsed.Payload);

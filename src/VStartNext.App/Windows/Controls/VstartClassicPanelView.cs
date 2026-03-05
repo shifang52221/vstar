@@ -7,15 +7,15 @@ namespace VStartNext.App.Windows.Controls;
 public sealed class VstartClassicPanelView : UserControl
 {
     private static readonly IReadOnlyList<string> AppCategories = ["Design Software", "Browsers"];
-    private static readonly IReadOnlyList<string> AppItems =
+    private static readonly IReadOnlyList<LauncherAppEntry> FallbackAppItems =
     [
-        "Chrome",
-        "QtWeb",
-        "360 Browser",
-        "Edge",
-        "Firefox",
-        "Baidu",
-        "Chromium"
+        new LauncherAppEntry("Chrome", string.Empty),
+        new LauncherAppEntry("QtWeb", string.Empty),
+        new LauncherAppEntry("360 Browser", string.Empty),
+        new LauncherAppEntry("Edge", string.Empty),
+        new LauncherAppEntry("Firefox", string.Empty),
+        new LauncherAppEntry("Baidu", string.Empty),
+        new LauncherAppEntry("Chromium", string.Empty)
     ];
 
     private static readonly IReadOnlyList<string> ToolGroups =
@@ -30,11 +30,20 @@ public sealed class VstartClassicPanelView : UserControl
     ];
 
     private readonly TextBox _searchInput;
+    private readonly IReadOnlyList<LauncherAppEntry> _appItems;
     private bool _focusCommandRequestedForTesting;
 
-    public VstartClassicPanelView(NeoThemeTokens? tokens = null)
+    public VstartClassicPanelView(
+        NeoThemeTokens? tokens = null,
+        IAppCatalog? appCatalog = null)
     {
         var theme = tokens ?? NeoThemeTokens.Default();
+        var catalog = appCatalog ?? new ShortcutAppCatalog();
+        _appItems = catalog.Load(maxCount: 12);
+        if (_appItems.Count == 0)
+        {
+            _appItems = FallbackAppItems;
+        }
 
         Dock = DockStyle.Fill;
         BackColor = Color.FromArgb(236, 236, 236);
@@ -58,7 +67,7 @@ public sealed class VstartClassicPanelView : UserControl
         root.Controls.Add(BuildHeroPanel(theme), 0, 0);
         root.Controls.Add(BuildTopTabs(theme), 0, 1);
         root.Controls.Add(BuildCategoryRows(theme), 0, 2);
-        root.Controls.Add(BuildAppGrid(theme), 0, 3);
+        root.Controls.Add(BuildAppGrid(theme, _appItems), 0, 3);
         root.Controls.Add(new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(236, 236, 236) }, 0, 4);
         root.Controls.Add(BuildToolGroups(theme), 0, 5);
 
@@ -102,6 +111,10 @@ public sealed class VstartClassicPanelView : UserControl
     public bool FocusCommandRequestedForTesting => _focusCommandRequestedForTesting;
 
     public int LauncherCategoryCountForTesting => AppCategories.Count;
+
+    public int CollectedAppCountForTesting => _appItems.Count;
+
+    public IReadOnlyList<string> CollectedAppNamesForTesting => _appItems.Select(x => x.Name).ToArray();
 
     public void SubmitCommandForTesting(string input)
     {
@@ -225,7 +238,7 @@ public sealed class VstartClassicPanelView : UserControl
         return rows;
     }
 
-    private static Control BuildAppGrid(NeoThemeTokens tokens)
+    private Control BuildAppGrid(NeoThemeTokens tokens, IReadOnlyList<LauncherAppEntry> apps)
     {
         var grid = new FlowLayoutPanel
         {
@@ -234,7 +247,7 @@ public sealed class VstartClassicPanelView : UserControl
             Padding = new Padding(12, 6, 12, 6)
         };
 
-        foreach (var app in AppItems)
+        foreach (var app in apps)
         {
             var tile = new Panel
             {
@@ -243,22 +256,34 @@ public sealed class VstartClassicPanelView : UserControl
                 Margin = new Padding(0, 0, 8, 8),
                 BackColor = Color.Transparent
             };
-            tile.Controls.Add(new Label
+            var title = new Label
             {
                 Dock = DockStyle.Bottom,
                 Height = 20,
-                Text = app,
+                Text = app.Name,
                 TextAlign = ContentAlignment.MiddleCenter,
                 ForeColor = Color.Black,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Regular)
-            });
-            tile.Controls.Add(new Panel
+            };
+            var icon = new Panel
             {
                 Dock = DockStyle.Fill,
                 BackColor = ParseColor(tokens.CommandBarColor, Color.FromArgb(164, 198, 235)),
                 Margin = new Padding(10),
                 BorderStyle = BorderStyle.FixedSingle
-            });
+            };
+
+            if (!string.IsNullOrWhiteSpace(app.TargetPath))
+            {
+                void EmitRunCommand(object? _, EventArgs __) =>
+                    CommandSubmitted?.Invoke(this, $"run: {app.TargetPath}");
+                tile.Click += EmitRunCommand;
+                icon.Click += EmitRunCommand;
+                title.Click += EmitRunCommand;
+            }
+
+            tile.Controls.Add(title);
+            tile.Controls.Add(icon);
 
             grid.Controls.Add(tile);
         }

@@ -38,6 +38,17 @@ public class CommandPaletteServiceTests
         fake.LastTarget.Should().Be("https://openai.com");
     }
 
+    [Fact]
+    public async Task Execute_Run_DispatchesLocalTarget()
+    {
+        var fake = new FakeExecutor();
+        var service = new CommandPaletteService(fake);
+
+        await service.ExecuteAsync(@"run: C:\Tools\Chrome.lnk");
+
+        fake.LastTarget.Should().Be(@"C:\Tools\Chrome.lnk");
+    }
+
     private sealed class FakeExecutor : ICommandActionExecutor
     {
         public string? LastTarget { get; private set; }
