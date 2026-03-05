@@ -8,6 +8,7 @@
 - [ ] WinUI preview form applies theme tokens and title-bar interaction focuses command input.
 - [ ] WinUI preview header shows cloud AI badge and current provider/model profile.
 - [ ] Launcher surface includes category rail, pinned/recent/folder sections, and quick-action context panel.
+- [ ] Classic launcher auto-collects Start Menu/Desktop shortcuts and emits runnable launch commands.
 - [ ] Search returns browser apps for `ch` query.
 - [ ] Launching a missing target shows readable error.
 - [ ] Pinned items rank above non-pinned in catalog list.
